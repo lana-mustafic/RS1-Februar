@@ -1,0 +1,106 @@
+<div class="container">
+  <!-- Header Card -->
+  <div class="header-card mat-elevation-z2">
+    <div class="header-card-content">
+      <div class="title-section">
+        <div class="title-icon">
+          <mat-icon>local_shipping</mat-icon>
+        </div>
+        <h1>Pošiljke</h1>
+      </div>
+
+      <div class="actions-container">
+        <button mat-raised-button color="primary" (click)="onCreate()">
+          <mat-icon>add</mat-icon>
+          Nova pošiljka
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Info napomena -->
+  <div class="info-card">
+    <mat-icon>info</mat-icon>
+    <span>Ovdje raditi ispitni zadatak - prvi modul</span>
+  </div>
+
+  <!-- Table -->
+  <div class="mat-elevation-z8">
+    <table mat-table [dataSource]="items">
+      <!-- Broj pošiljke -->
+      <ng-container matColumnDef="shipmentNumber">
+        <th mat-header-cell *matHeaderCellDef>Broj pošiljke</th>
+        <td mat-cell *matCellDef="let item">
+          <span style="font-weight: 500">{{ item.shipmentNumber }}</span>
+        </td>
+      </ng-container>
+
+      <!-- Narudžba -->
+      <ng-container matColumnDef="orderReferenceNumber">
+        <th mat-header-cell *matHeaderCellDef>Narudžba</th>
+        <td mat-cell *matCellDef="let item">
+          {{ item.orderReferenceNumber }}
+        </td>
+      </ng-container>
+
+      <!-- Status -->
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let item">
+          <span class="status-badge status-{{ item.status }}">
+            {{ item.statusNaziv }}
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Cijena dostave -->
+      <ng-container matColumnDef="shippingCost">
+        <th mat-header-cell *matHeaderCellDef>Cijena dostave</th>
+        <td mat-cell *matCellDef="let item">
+          <span style="font-weight: 600; color: #4976b5">
+            {{ item.shippingCost }} KM
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Datum slanja -->
+      <ng-container matColumnDef="shippedAtUtc">
+        <th mat-header-cell *matHeaderCellDef>Datum slanja</th>
+        <td mat-cell *matCellDef="let item">
+          {{ item.shippedAtUtc }}
+        </td>
+      </ng-container>
+
+      <!-- Datum dostave -->
+      <ng-container matColumnDef="deliveredAtUtc">
+        <th mat-header-cell *matHeaderCellDef>Datum dostave</th>
+        <td mat-cell *matCellDef="let item">
+          {{ item.deliveredAtUtc || '-' }}
+        </td>
+      </ng-container>
+
+      <!-- Akcije -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef>Akcije</th>
+        <td mat-cell *matCellDef="let item">
+          <button mat-icon-button color="primary" matTooltip="Uredi">
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button mat-icon-button color="warn" matTooltip="Obriši">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+
+      <!-- No data -->
+      <tr class="mat-row" *matNoDataRow>
+        <td class="mat-cell" colspan="7">
+          Nema pošiljki.
+        </td>
+      </tr>
+    </table>
+  </div>
+</div>

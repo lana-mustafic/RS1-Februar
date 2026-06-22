@@ -1,0 +1,158 @@
+<div class="container">
+  <!-- Header Card -->
+  <div class="header-card">
+    <div class="header-card-content">
+      <!-- Left: Title with Icon -->
+      <div class="title-section">
+        <button mat-icon-button (click)="onCancel()" class="back-btn">
+          <mat-icon>arrow_back</mat-icon>
+        </button>
+        <div class="title-icon">
+          <mat-icon>payments</mat-icon>
+        </div>
+        <div>
+          <h1>Nova uplata</h1>
+        </div>
+      </div>
+
+      <!-- Right: Actions -->
+      <div class="actions-container">
+        <button mat-button (click)="onCancel()" [disabled]="isSaving">
+          <mat-icon>close</mat-icon>
+          <span>Odustani</span>
+        </button>
+        <button
+          mat-raised-button
+          color="primary"
+          (click)="onSubmit()"
+          [disabled]="form.invalid || isSaving || isLoading"
+        >
+          <mat-spinner *ngIf="isSaving" diameter="20"></mat-spinner>
+          <mat-icon *ngIf="!isSaving">save</mat-icon>
+          <span>Sacuvaj</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Form Content -->
+  <div class="form-content" *ngIf="!isLoading && form">
+    <form [formGroup]="form">
+      <!-- Uplata Info -->
+      <mat-card class="section-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>notes</mat-icon>
+            Uplata
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Broj uplate</mat-label>
+              <input matInput type="text"  required />
+              <mat-icon matSuffix>tag</mat-icon>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Narudzba</mat-label>
+              <mat-select  required (selectionChange)="onOrderChange($event.value)">
+                <mat-option *ngFor="let narudzba of narudzbe" [value]="narudzba.id">
+                  {{ narudzba.referenceNumber }}
+                </mat-option>
+              </mat-select>
+              <mat-icon matSuffix>shopping_cart</mat-icon>
+            </mat-form-field>
+          </div>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Napomena (opciono)</mat-label>
+            <textarea
+              matInput
+              rows="3"
+              placeholder="Unesite napomenu..."
+            ></textarea>
+            <mat-icon matSuffix>description</mat-icon>
+          </mat-form-field>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Stavke Uplate -->
+      <mat-card class="section-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>receipt_long</mat-icon>
+            Stavke Uplate
+          </mat-card-title>
+          <button
+            mat-stroked-button
+            color="primary"
+            type="button"
+            (click)="addItem()"
+            class="add-item-btn"
+          >
+            <mat-icon>add</mat-icon>
+            Dodaj Stavku
+          </button>
+        </mat-card-header>
+        <mat-card-content>
+          <!-- Items Array -->
+          <div formArrayName="items" class="items-container">
+            <div
+              *ngFor="let itemGroup of items.controls; let i = index"
+              [formGroupName]="i"
+              class="item-row"
+            >
+              <div class="item-row-header">
+                <span class="item-number">Stavka #{{ i + 1 }}</span>
+                <button
+                  mat-icon-button
+                  color="warn"
+                  type="button"
+                  (click)="removeItem(i)"
+                  matTooltip="Obrisi stavku"
+                >
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+
+              <div class="item-row-content">
+                <mat-form-field appearance="outline" class="item-field">
+                  <mat-label>Proizvod</mat-label>
+                  <mat-select required>
+                    <mat-option *ngFor="let item of selectedOrderItems" [value]="item.product.id">
+                      {{ item.product.name }}
+                    </mat-option>
+                  </mat-select>
+                  <mat-icon matSuffix>inventory</mat-icon>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="item-field">
+                  <mat-label>Kolicina</mat-label>
+                  <input matInput type="number" min="1" required />
+                  <mat-icon matSuffix>tag</mat-icon>
+                  <mat-error *ngIf="itemGroup.get('kolicina')?.invalid">Minimalno 1</mat-error>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="item-field">
+                  <mat-label>Nacin placanja</mat-label>
+                  <mat-select required>
+                  </mat-select>
+                  <mat-icon matSuffix>payment</mat-icon>
+                </mat-form-field>
+              </div>
+            </div>
+
+            <!-- No Items Message -->
+            <div *ngIf="items.length === 0" class="no-items">
+              <mat-icon>inbox</mat-icon>
+              <p>Nema stavki u uplati. Kliknite "Dodaj Stavku" da dodate proizvode.</p>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+
+    </form>
+  </div>
+</div>

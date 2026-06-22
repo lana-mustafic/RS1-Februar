@@ -1,0 +1,21 @@
+# .NET
+**/bin/
+**/obj/
+**/.vs/
+**/Logs/
+*.user
+*.suo
+
+# Node / Angular
+**/node_modules/
+**/dist/
+**/.angular/
+
+# IDE
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Cursor
+.cursor/

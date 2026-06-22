@@ -1,0 +1,75 @@
+<div class="container">
+  <!-- Header Card -->
+  <div class="header-card">
+    <div class="header-card-content">
+      <div class="title-section">
+        <div class="title-icon">
+          <mat-icon>receipt_long</mat-icon>
+        </div>
+        <h1>Fakture</h1>
+      </div>
+
+      <div class="actions-container">
+        <button mat-raised-button color="primary" (click)="onNovaFaktura()">
+          <mat-icon>add</mat-icon>
+          Nova faktura
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-card">
+    <mat-icon>info</mat-icon>
+    <span>Ovdje raditi ispitni zadatak - drugi modul</span>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <table mat-table [dataSource]="fakture">
+      <!-- Broj računa -->
+      <ng-container matColumnDef="brojRacuna">
+        <th mat-header-cell *matHeaderCellDef>BROJ RAČUNA</th>
+        <td mat-cell *matCellDef="let faktura">
+          <span class="broj-racuna">{{ faktura.brojRacuna }}</span>
+        </td>
+      </ng-container>
+
+      <!-- Tip -->
+      <ng-container matColumnDef="tip">
+        <th mat-header-cell *matHeaderCellDef>TIP</th>
+        <td mat-cell *matCellDef="let faktura">
+          <span class="tip-badge" [ngClass]="getTipClass(faktura.tip)">
+            {{ getTipString(faktura.tip) }}
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Datum kreiranja -->
+      <ng-container matColumnDef="datumKreiranja">
+        <th mat-header-cell *matHeaderCellDef>DATUM KREIRANJA</th>
+        <td mat-cell *matCellDef="let faktura">
+          {{ faktura.datumKreiranja | date }}
+        </td>
+      </ng-container>
+
+      <!-- Broj stavki -->
+      <ng-container matColumnDef="brojStavki">
+        <th mat-header-cell *matHeaderCellDef>BROJ STAVKI</th>
+        <td mat-cell *matCellDef="let faktura" class="broj-stavki-cell">
+          {{ faktura.brojStavki }}
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+    </table>
+
+    <!-- Footer info -->
+    <div class="table-footer">
+      <div class="footer-info">
+        <mat-icon>info</mat-icon>
+        <span>Stranica 1 od 1 · Ukupno: {{ fakture.length }} zapisa</span>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,224 @@
+// Glavne boje - teget paleta #4976b5
+$primary-color: #4976b5;
+$primary-light: #6b96d1;
+$primary-lighter: #e8f0f9;
+$primary-dark: #3a5e91;
+
+$text-primary: #2c3e50;
+$text-secondary: #546e7a;
+
+$bg-gradient-start: #f0f5fb;
+$bg-gradient-end: #e3ecf7;
+
+$border-color: rgba(73, 118, 181, 0.15);
+
+// Container
+.container {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  background: linear-gradient(135deg, $bg-gradient-start 0%, $bg-gradient-end 100%);
+  min-height: 100vh;
+}
+
+// Header Card
+.header-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px 32px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(73, 118, 181, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+  border: 1px solid $border-color;
+
+  .header-card-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+
+    .title-section {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+
+      .title-icon {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, $primary-color 0%, $primary-light 100%);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(73, 118, 181, 0.25);
+
+        mat-icon {
+          color: white;
+          font-size: 28px;
+          width: 28px;
+          height: 28px;
+        }
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 600;
+        color: $text-primary;
+        letter-spacing: -0.5px;
+      }
+    }
+
+    .actions-container {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+
+      .search-field {
+        width: 280px;
+
+        ::ng-deep {
+          .mat-mdc-text-field-wrapper {
+            background-color: white;
+          }
+
+          .mdc-notched-outline__leading,
+          .mdc-notched-outline__notch,
+          .mdc-notched-outline__trailing {
+            border-color: rgba(73, 118, 181, 0.3) !important;
+          }
+
+          .mat-mdc-form-field.mat-focused {
+            .mdc-notched-outline__leading,
+            .mdc-notched-outline__notch,
+            .mdc-notched-outline__trailing {
+              border-color: $primary-color !important;
+              border-width: 2px !important;
+            }
+          }
+
+          .mat-mdc-floating-label {
+            color: $text-secondary;
+          }
+
+          .mat-focused .mat-mdc-floating-label {
+            color: $primary-color !important;
+          }
+
+          input {
+            color: $text-primary;
+          }
+
+          .mat-icon {
+            color: $primary-color;
+          }
+        }
+      }
+
+      button[mat-raised-button] {
+        background: linear-gradient(135deg, $primary-color 0%, $primary-light 100%);
+        color: white;
+        font-weight: 600;
+        padding: 0 24px;
+        height: 44px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(73, 118, 181, 0.25);
+        transition: all 0.3s ease;
+
+        mat-icon {
+          margin-right: 8px;
+        }
+
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(73, 118, 181, 0.35);
+        }
+      }
+    }
+  }
+}
+
+// Loading & Error
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: $text-secondary;
+  font-size: 16px;
+}
+
+.error {
+  text-align: center;
+  padding: 20px;
+  color: #ef5350;
+  font-size: 16px;
+}
+
+// Status badges
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+
+  &.status-1 { // Kreirana
+    background: #e3f2fd;
+    color: #1565c0;
+  }
+  &.status-2 { // USkladistu
+    background: #fff3e0;
+    color: #e65100;
+  }
+  &.status-3 { // UDostavi
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+  &.status-4 { // Dostavljena
+    background: #e8f5e9;
+    color: #1b5e20;
+  }
+  &.status-5 { // Otkazana
+    background: #ffebee;
+    color: #c62828;
+  }
+}
+
+// Table
+table {
+  width: 100%;
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .container {
+    padding: 16px;
+  }
+
+  .header-card {
+    padding: 20px;
+
+    .header-card-content {
+      flex-direction: column;
+      align-items: stretch;
+
+      .title-section {
+        justify-content: center;
+      }
+
+      .actions-container {
+        flex-direction: column;
+        width: 100%;
+
+        .search-field {
+          width: 100%;
+        }
+
+        button[mat-raised-button] {
+          width: 100%;
+        }
+      }
+    }
+  }
+}
