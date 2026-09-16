@@ -1,1082 +1,1163 @@
-# RS1 — Modul 2 — Kompletni vodič za pripremu ispita
+# RS1 — Modul 2 — Kompletni vodič (februarski ispit)
 
-> **Napomena:** Ovaj dokument je učeni materijal, ne gotovo rješenje. Cilj je da razumiješ logiku i sama napišeš kod na ispitu.
+> **Cilj ovog dokumenta:** Da razumiješ *logiku* rješavanja, a ne da slijepo kopiraš gotov kod.
+> **Pravilo:** Prvo čitaj, razumij, zatim sama piši. Koristi postojeće fajlove u **ovom** projektu kao „udžbenik".
+> **Pretpostavka:** Znaš osnove iz Modula 1 (CQRS, API servis, Reactive Forms, paginacija). Ovdje to koristiš, ali zadatak je **teži**.
 
 ---
 
 ## Sadržaj
 
-1. [Uvod — šta je Modul 2?](#uvod--šta-je-modul-2)
-2. [Razlika između Modula 1 i Modula 2](#razlika-između-modula-1-i-modula-2)
-3. [Kako je organizovan tvoj projekat?](#kako-je-organizovan-tvoj-projekat)
-4. [Mapa pojmova](#mapa-pojmova)
-5. [Opšta strategija za ispit](#opšta-strategija-za-ispit)
-6. [Zadatak — Upravljanje uplatama (master-detail)](#zadatak--upravljanje-uplatama-master-detail)
-7. [Rečnik pojmova](#rečnik-pojmova)
-8. [Kako razmišljati na ispitu](#kako-razmišljati-na-ispitu)
+1. [Uvod — šta je Modul 2?](#1-uvod--šta-je-modul-2)
+2. [Šta ovaj vodič NIJE](#2-šta-ovaj-vodič-nije)
+3. [Razlika između Modula 1 i Modula 2](#3-razlika-između-modula-1-i-modula-2)
+4. [Šta starter već ima, a šta ti moraš napraviti](#4-šta-starter-već-ima-a-šta-ti-moraš-napraviti)
+5. [Kako je organizovan projekat](#5-kako-je-organizovan-projekat)
+6. [Mapa pojmova](#6-mapa-pojmova)
+7. [Kako čitati zadatak](#7-kako-čitati-zadatak)
+8. [Opšta strategija](#8-opšta-strategija)
+9. [Backend — korak po korak](#9-backend--korak-po-korak)
+10. [Frontend — korak po korak](#10-frontend--korak-po-korak)
+11. [Vizuelni tok rješenja](#11-vizuelni-tok-rješenja)
+12. [Kako testirati](#12-kako-testirati)
+13. [Najčešće greške i debug](#13-najčešće-greške-i-debug)
+14. [Završna checklista prije predaje](#14-završna-checklist-prije-predaje)
+15. [Kako razmišljati na ispitu](#15-kako-razmišljati-na-ispitu)
+16. [Rečnik pojmova](#16-rečnik-pojmova)
 
 ---
 
-## Uvod — šta je Modul 2?
+## 1. Uvod — šta je Modul 2?
 
-**Modul 2** ispita iz Razvoja softvera I fokusiran je na **napredniju funkcionalnost** — upravljanje **uplatama** (Payments) u Market aplikaciji.
+Na **februarskom** ispitu, Modul 2 je označen u sidebaru kao **„Uplata (Modul 2)"** i na listi piše:
 
-Za razliku od Modula 1 (gdje si radila klasičan CRUD za pošiljke), ovdje je fokus na:
+> „Ovdje raditi ispitni zadatak - drugi modul"
 
-| Aspekt | Modul 2 |
-|--------|---------|
-| **Glavni entitet** | `Uplata` (uplata za narudžbu) |
-| **Posebnost** | **Master-detail** forma — jedna uplata ima više **linija/stavki** |
-| **Poslovna logika** | Kreiranje uplate **mijenja stanje narudžbe** (iznos plaćen, dug, status) |
-| **Lista** | Samo prikaz + paginacija — **nema** edit/delete u tabeli |
-| **Dodavanje** | Kompleksna forma s dinamičkim stavkama |
+Na papiru stoji otprilike: **„Zadatak 2 — Napredne funkcionalnosti — Upravljanje uplatama"**.
 
-Na ispitu piše: **„Zadatak 2 — Napredne funkcionalnosti — Upravljanje uplatama"**. To je zadatak **drugog modula**, ne drugi zadatak iz Modula 1.
+To **nije** drugi zadatak iz Modula 1. Modul 1 su **Pošiljke**. Modul 2 su **Uplate**.
+
+### Šta radiš?
+
+Administratorski modul u kojem korisnik:
+
+1. **Vidi listu uplata** (broj uplate, broj narudžbe, datum kreiranja, ukupan iznos) s **paginacijom**.
+2. **Kreira novu uplatu** na **master-detail** formi: jedna uplata (roditelj) + više **linija/stavki** (djeca).
+3. Pri kreiranju, sistem **računa iznos** i **ažurira narudžbu** (koliko je plaćeno, koliki je dug, status `PartiallyPaid` ili `Paid`).
+
+**Nema** uređivanja i **nema** brisanja uplata. Zadatak to eksplicitno kaže — ne troši vrijeme na Update/Delete.
+
+### Master-detail, jednom rečenicom
+
+Jedna uplata (`UplataEntity`) ima više linija (`UplataLinijaEntity`). U Angularu to je `FormGroup` + `FormArray`. U bazi to je relacija **1:N**. Jedan HTTP POST šalje cijelu uplatu odjednom.
 
 ---
 
-## Razlika između Modula 1 i Modula 2
+## 2. Šta ovaj vodič NIJE
+
+### Ovo NIJE januarski Modul 2
+
+Januarski Modul 2 su bile **Fakture** (ulazna/izlazna, zalihe proizvoda).
+
+U februarskom projektu **postoji** meni **Fakture**, ali to **nije** tvoj ispitni zadatak ovog modula.
+
+**Ne radi Fakture. Radi Uplate.** Sidebar: **„Uplata (Modul 2)"**.
+
+### Ovo NIJE Modul 1
+
+Ne radi Pošiljke ovdje. Ne dodaješ edit/delete kolone „jer su bile u Modulu 1".
+
+### Šta NE smiješ izmišljati
+
+Ako to **ne piše** u februarskom zadatku:
+
+- Update/Delete uplate
+- Filter na listi uplata
+- GetById za uplatu
+- mijenjanje zaliha proizvoda (`StockQuantity`) — to je januarski ispit
+- cache kataloga
+- novi enum za način plaćanja (već postoji `NacinPlacanjaType`)
+- novi `UplataEntity` od nule (već postoji — samo mu **nedostaju linije**)
+
+---
+
+## 3. Razlika između Modula 1 i Modula 2
 
 | | Modul 1 (Pošiljke) | Modul 2 (Uplate) |
 |---|-------------------|------------------|
-| Operacije | Create, Read, Update, Delete | **Create + Read** (lista) |
-| Forma | Jednostavna (3–4 polja) | **Roditelj + djeca** (uplata + stavke) |
-| Veza s drugim entitetom | Samo FK na narudžbu | FK + **ažuriranje narudžbe** |
-| Paginacija | Da | Da — **posebno obrati pažnju** |
-| Modal za brisanje | Da | **Ne treba** (nema brisanja) |
-| Novi entitet u bazi | Ne (već postoji) | **Da** — `UplataLinija` (linija uplate) |
+| Operacije | Create, Read, Update, Delete | **Samo lista + Create** |
+| Forma | Jednostavan `FormGroup` | `FormGroup` + **`FormArray`** |
+| Novi entitet | Ne (već postojao) | **Da** — `UplataLinijaEntity` + migracija |
+| Veza | FK na narudžbu | FK + **ažuriranje narudžbe** |
+| Paginacija | Da | Da — u starteru je **pokvarena**, moraš je popraviti |
+| Modal za brisanje | Da | **Ne treba** |
+| Težina | CRUD obrazac | Poslovna logika u Handleru |
 
-Ako si riješila Modul 1, već znaš CQRS, Reactive Forms i API servise. Modul 2 gradi na tome, ali dodaje **relaciju 1:N** i **poslovnu logiku**.
+Ako si uradila Modul 1, već znaš CQRS i API servis. Ovdje je novi dio: **1:N**, **FormArray**, **računanje iznosa**, **promjena statusa narudžbe**.
 
 ---
 
-## Kako je organizovan tvoj projekat?
+## 4. Šta starter već ima, a šta ti moraš napraviti
 
-### Dva projekta
+### Već postoji
+
+| Šta | Gdje |
+|-----|------|
+| `UplataEntity` (bez kolekcije linija) | `Market.Domain/Entities/Sales/UplataEntity.cs` |
+| Enum `NacinPlacanjaType` (`Kes = 1`, `Kartica = 2`) | `NacinPlacanjaType.cs` |
+| `OrderEntity` s `TotalAmount`, `TotalAmountPaid`, `BalanceDue`, `Status`, `PaidAtUtc` | `OrderEntity.cs` |
+| `OrderStatusType.Paid = 3`, `PartiallyPaid = 6` | `OrderStatusType.cs` |
+| `OrderItemEntity` (proizvod, količina, `UnitPrice`, popust, `Total`) | `OrderItemEntity.cs` |
+| `DbSet<UplataEntity> Uplate` | `DatabaseContext` + `IAppDbContext` |
+| EF config za uplatu | `UplataConfiguration.cs` |
+| Lista CQRS | `Modules/Sales/Uplate/Queries/List/` |
+| `UplateController` — **samo GET** | `Market.API/Controllers/UplateController.cs` |
+| Endpoint narudžbi sa stavkama | `GET /Orders/with-items` |
+| Seed 3 uplate **bez linija** | `DynamicDataSeeder.SeedUplateAsync` |
+| Sidebar + rute `uplate` i `uplate/add` | admin layout / routing |
+| Lista HTML (tabela, bez paginatora, bez edit/delete) | `uplate.component.html` |
+| Add HTML (izgled forme, **bez** `formControlName`) | `uplata-add.component.html` |
+| Add TS: `FormArray` skelet, prazan `ngOnInit` i `onSubmit` | `uplata-add.component.ts` |
+| API servis: samo `list(pageNumber, pageSize)` s **pogrešnim** query parametrima | `uplate-api.service.ts` |
+| Enum na FE | `uplate-api.models.ts` |
+
+### Ti moraš napraviti / popraviti
+
+**Backend**
+
+- Novi entitet `UplataLinijaEntity`
+- Kolekcija linija na `UplataEntity`
+- EF konfiguracija + `DbSet` u Context i `IAppDbContext`
+- Migracija (aplikacija sama radi `MigrateAsync` pri startu)
+- `CreateUplataCommand` + Handler + Validator
+- `POST` u `UplateController`
+
+**Frontend**
+
+- `CreateUplataCommand` u models + `create()` u servisu
+- Popraviti listu: pravi `paging.page` / `paging.pageSize` + `app-fit-paginator-bar`
+- Učitati narudžbe (`listWithItems`)
+- Staviti `formControlName`, opcije za način plaćanja, validatore, submit + toast
+- Uskladiti imena polja proizvoda s backend DTO-om (`productId` / `productName`)
+
+### Šta je namjerno pokvareno (profesor to očekuje da vidiš)
+
+1. `UplataEntity` **nema** kolekciju linija.
+2. `narudzbe = []` i `ngOnInit` je prazan — dropdown narudžbi je prazan.
+3. Lista zove `list(1, 100)` i šalje `Paging.PageNumber` — backend očekuje `Paging.Page`. Paginacija UI ne postoji.
+4. `mat-select` za način plaćanja **nema** `mat-option`.
+5. Inputi **nemaju** `formControlName`.
+6. `onSubmit()` je prazan.
+7. HTML koristi `item.product.id` i `item.product.name`, a backend za `GET /Orders/with-items` vraća `product.productId` i `product.productName`.
+
+---
+
+## 5. Kako je organizovan projekat
+
+Isti dva foldera kao Modul 1:
 
 ```
 2026-02-16/
-├── rs1_backend-2025-26/     ← Backend (.NET Web API)
-└── rs1-frontend-2025-26/  ← Frontend (Angular)
+├── rs1_backend-2025-26/
+└── rs1-frontend-2025-26/
 ```
 
 ### Backend — gdje šta tražiti
 
-| Šta tražiš | Gdje je | Putanja |
-|------------|---------|---------|
-| **Entitet Uplata** | Domain | `Market.Domain/Entities/Sales/UplataEntity.cs` |
-| **Entitet Narudžba** | Domain | `Market.Domain/Entities/Sales/OrderEntity.cs` |
-| **Stavka narudžbe** | Domain | `Market.Domain/Entities/Sales/OrderItemEntity.cs` |
-| **Način plaćanja (enum)** | Domain | `Market.Domain/Entities/Sales/NacinPlacanjaType.cs` |
-| **Status narudžbe (enum)** | Domain | `Market.Domain/Entities/Sales/OrderStatusType.cs` |
-| **DbContext** | Infrastructure | `Market.Infrastructure/Database/DatabaseContext.cs` |
-| **Interfejs baze** | Application | `Market.Application/Abstractions/IAppDbContext.cs` |
-| **EF konfiguracija Uplate** | Infrastructure | `Market.Infrastructure/Database/Configurations/Sales/UplataConfiguration.cs` |
-| **Lista uplata (CQRS)** | Application | `Market.Application/Modules/Sales/Uplate/Queries/List/` |
-| **Kontroler** | API | `Market.API/Controllers/UplateController.cs` |
-| **Narudžbe sa stavkama** | Application | `Market.Application/Modules/Sales/Orders/Queries/ListWithItems/` |
-| **Kontroler narudžbi** | API | `Market.API/Controllers/OrdersController.cs` |
-| **Seed podaci** | Infrastructure | `Market.Infrastructure/Database/Seeders/DynamicDataSeeder.cs` |
+| Šta | Putanja |
+|-----|---------|
+| Entitet uplate | `Market.Domain/Entities/Sales/UplataEntity.cs` |
+| **Novi entitet linije** | isti folder — **kreiraš** `UplataLinijaEntity.cs` |
+| Narudžba | `OrderEntity.cs` |
+| Stavka narudžbe | `OrderItemEntity.cs` |
+| Način plaćanja | `NacinPlacanjaType.cs` |
+| Status narudžbe | `OrderStatusType.cs` |
+| Cijena proizvoda | `Market.Domain/Entities/Catalog/ProductEntity.cs` → `Price` |
+| `IAppDbContext` | `Market.Application/Abstractions/IAppDbContext.cs` |
+| DbContext | `Market.Infrastructure/Database/DatabaseContext.cs` |
+| Uzor 1:N EF | `OrderItemConfiguration.cs` (`HasOne` + `WithMany` + Cascade) |
+| Lista uplata (gotova) | `Market.Application/Modules/Sales/Uplate/Queries/List/` |
+| **Create (tvoj kod)** | `.../Uplate/Commands/Create/` ← **kreiraš** |
+| Uzor složenog Create | `Modules/Sales/Orders/Commands/Create/CreateOrderCommandHandler.cs` |
+| Narudžbe sa stavkama | `Modules/Sales/Orders/Queries/ListWithItems/` |
+| Kontroler | `Market.API/Controllers/UplateController.cs` |
+| Seed | `DynamicDataSeeder.cs` → `SeedUplateAsync` |
 
 ### Frontend — gdje šta tražiti
 
-| Šta tražiš | Gdje je | Putanja |
-|------------|---------|---------|
-| **Lista uplata** | Admin | `src/app/modules/admin/uplate/uplate.component.*` |
-| **Dodavanje uplate** | Admin | `src/app/modules/admin/uplate/uplata-add/` |
-| **API servis uplata** | api-services | `src/app/api-services/uplate/` |
-| **API servis narudžbi** | api-services | `src/app/api-services/orders/` |
-| **Rute** | Admin | `src/app/modules/admin/admin-routing-module.ts` |
-| **Sidebar** | Admin | `src/app/modules/admin/admin-layout/admin-layout.component.html` |
-| **Toast** | Core | `src/app/core/services/toaster.service.ts` |
-| **Bazna klasa za paginaciju** | Core | `src/app/core/components/base-classes/base-list-paged-component.ts` |
-| **Primjer liste s paginacijom** | Admin | `src/app/modules/admin/catalogs/products/products.component.ts` |
+| Šta | Putanja |
+|-----|---------|
+| Lista | `src/app/modules/admin/uplate/uplate.component.*` |
+| Add forma | `.../uplate/uplata-add/` |
+| API uplata | `src/app/api-services/uplate/` |
+| API narudžbi | `src/app/api-services/orders/` |
+| Uzor paginacije | `catalogs/products/products.component.ts` + `app-fit-paginator-bar` |
+| Toast | `core/services/toaster.service.ts` |
+| `largePaging` | `core/models/paging/paging-utils.ts` |
+| `buildHttpParams` | `core/models/build-http-params.ts` |
 
-### Šta starter već ima
-
-| Već postoji | Još nije gotovo (tvoj posao) |
-|-------------|------------------------------|
-| `UplataEntity` (bez kolekcije linija) | Kreirati `UplataLinijaEntity` + relacija 1:N |
-| `ListUplateQuery` + Handler + Controller GET | `CreateUplataCommand` + Handler + Validator |
-| `UplateController` (samo GET) | POST endpoint u kontroleru |
-| `UplateApiService.list()` | `create()` metoda u API servisu |
-| HTML lista i forma (izgled) | Logika, binding, validacija |
-| `FormArray` u `uplata-add` (prazan okvir) | Učitavanje narudžbi, submit, validatori |
-| `Orders/with-items` endpoint | Povezati ga u `uplata-add` |
-| Demo seed (3 uplate bez linija) | Seed s linijama i ispravnim `UkupanIznos` |
-
-### Šta je „pokvareno" u starteru (profesor to eksplicitno navodi)
-
-1. **`UplataEntity` nema kolekciju linija** — moraš dodati novi entitet i vezu 1:N.
-2. **`narudzbe` u `uplata-add` je prazan niz** — moraš učitati preko API-ja.
-3. **Paginacija na listi ne radi** — učitava se `page 1, size 100` bez UI kontrole.
-4. **`mat-select` za način plaćanja je prazan** — nema `mat-option`.
-5. **Inputi nemaju `formControlName`** — forma nije povezana s HTML-om.
-6. **Seed uplate nemaju linije** — služe samo za test liste; `UkupanIznos` treba računati na backendu.
-
----
-
-## Mapa pojmova
-
-Ako si na vježbama čula WinForms pojmove, evo kako odgovaraju **ovom** projektu:
-
-| Stari pojam | U tvom projektu |
-|-------------|-----------------|
-| Forma | Angular komponenta (`uplate`, `uplata-add`) |
-| ComboBox | `mat-select` + `mat-option` |
-| DataGridView | `mat-table` |
-| BindingSource | `FormGroup` / `FormArray` (Reactive Forms) |
-| Data Binding | `formControlName`, `{{ uplata.brojUplate }}` |
-| MessageBox | `ToasterService` (toast poruka) |
-| Event Handler | Metoda na `(click)`, `(selectionChange)`, `(ngSubmit)` |
-| Repository | Nema — koristiš `IAppDbContext` u Handleru |
-
----
-
-## Opšta strategija za ispit
-
-### Preporučeni redoslijed
+### Relacija koju moraš imati u glavi
 
 ```
-1. Pročitaj cijeli zadatak — posebno poslovnu logiku
-2. Domain: novi entitet UplataLinija + veza na Uplatu
-3. Infrastructure: EF konfiguracija + migracija + DbSet
-4. Backend: Create Command + Handler (najteži dio!)
-5. Test u Swaggeru: POST uplata → provjeri narudžbu u bazi
-6. Frontend: popravi listu (paginacija)
-7. Frontend: popravi add formu (učitaj narudžbe, binding, submit)
-8. Ručni test cijelog toka
-```
-
-### Zašto prvo entitet i baza?
-
-Bez `UplataLinija` u bazi ne možeš snimiti stavke. Bez Create Handlera frontend nema kuda slati podatke. **Logika narudžbe mora biti na backendu** — frontend samo šalje podatke.
-
----
-
-# Zadatak — Upravljanje uplatama (master-detail)
-
----
-
-## 1. Analiza zadatka
-
-### Kako pravilno pročitati zadatak?
-
-Pročitaj tekst **tri puta**:
-
-1. **Prvo čitanje** — šta korisnik radi (klikne, vidi, unese)?
-2. **Drugo čitanje** — koja polja postoje i šta je obavezno?
-3. **Treće čitanje** — šta se dešava u **pozadini** (baza, narudžba, izračuni)?
-
-Podvuci rečenice koje počinju s: *„automatski"*, *„mora"*, *„potrebno je"*, *„ažurira se"*.
-
-### Šta profesor zapravo traži?
-
-#### A) Lista uplata (Read)
-
-- Tabelarni prikaz svih uplata.
-- Kolone: **broj uplate**, **broj narudžbe**, **datum kreiranja**, **ukupan iznos**.
-- **Paginacija** — korisnik mijenja stranicu i broj zapisa po stranici.
-- Dugme **„+ Nova uplata"** gore desno.
-- **NE** dodavati kolone za edit i delete.
-
-#### B) Dodavanje uplate (Create) — master-detail forma
-
-**Roditelj (uplata):**
-
-| Polje | Obavezno? |
-|-------|-----------|
-| Broj uplate | Da |
-| Narudžba (dropdown) | Da |
-| Napomena | Ne |
-
-**Djeca (stavke uplate — linije):**
-
-Svaka uplata mora imati **barem jednu** stavku. Svaka stavka ima:
-
-| Polje | Obavezno? | Napomena |
-|-------|-----------|----------|
-| Proizvod | Da | Samo proizvodi iz **odabrane narudžbe** |
-| Količina | Da | Koliko komada se plaća |
-| Način plaćanja | Da | Enum: **Keš** ili **Kartica** |
-
-Korisnik može dodavati i uklanjati stavke dugmetom „Dodaj stavku".
-
-#### C) Poslovna logika (najvažnije!)
-
-Kad se uplata **kreira**, sistem mora:
-
-1. **Izračunati ukupan iznos uplate** na osnovu:
-   - odabranih proizvoda
-   - količine
-   - **jedinične cijene proizvoda** (bez popusta!)
-
-2. **Ažurirati narudžbu:**
-   - `TotalAmountPaid` += iznos nove uplate
-   - `BalanceDue` = `TotalAmount` − `TotalAmountPaid`
-   - Ako `BalanceDue > 0` → status = **PartiallyPaid**
-   - Ako `BalanceDue == 0` → status = **Paid**
-
-3. **Pravila spajanja linija:**
-   - Isti proizvod + **isti** način plaćanja → **saberi količine**, jedna linija
-   - Isti proizvod + **različit** način plaćanja → **odvojene** linije
-
-#### D) Opšti zahtjevi (vrijede i ovdje)
-
-- Backend: **CQRS**
-- Frontend: **Reactive Forms**
-- **Toast** na uspjeh/grešku
-- **Paginacija** na listi
-- Dizajn nije bitan — funkcionalnost jeste
-
-### Ključne riječi za prepoznavanje
-
-| Riječ u zadatku | Šta znači za tebe |
-|-----------------|-------------------|
-| **Master-detail** / **parent-child** | Jedna uplata, više stavki — `FormArray` na FE, 1:N u bazi |
-| **Linija uplate** | Novi entitet `UplataLinijaEntity` |
-| **PartiallyPaid** / **Paid** | Mijenjaš `Order.Status` u Handleru |
-| **BalanceDue** | Računaš i upisuješ u `OrderEntity` |
-| **Bez popusta** | Koristiš cijenu proizvoda (`Product.Price` ili `UnitPrice`), ne `OrderItem.Total` |
-| **Paginacija** | `BaseListPagedComponent` na listi |
-| **Reactive Forms** | `FormGroup` + `FormArray` + `Validators` |
-| **Nije potrebno** (edit/delete) | Ne gubi vrijeme na Update/Delete |
-
-### Redoslijed rada
-
-```
-Baza (entitet + migracija)
-    → Backend Create (logika!)
-        → Swagger test
-            → Frontend lista (paginacija)
-                → Frontend forma (master-detail)
-                    → Cijeli tok
-```
-
-### Na šta posebno obratiti pažnju?
-
-1. **Cijena bez popusta** — česta zamka; ne uzimaj `OrderItem.Total`.
-2. **Barem jedna stavka** — validacija na BE i FE.
-3. **Proizvod mora biti iz narudžbe** — validacija u Handleru.
-4. **Spajanje linija** — radi prije snimanja.
-5. **Paginacija** — ne hardkodiraj `pageSize: 100`.
-6. **`formControlName`** — bez toga forma ne radi.
-7. **Nema edit/delete** — ne troši vrijeme na to.
-
----
-
-## 2. Analiza template projekta
-
-### Struktura projekta — uloga svakog dijela
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  Market.Domain          → Entiteti (šta postoji u bazi) │
-│  Market.Application     → CQRS (logika, validacija)     │
-│  Market.Infrastructure  → Baza, EF, migracije, seed     │
-│  Market.API             → HTTP endpointi (Controller)  │
-└─────────────────────────────────────────────────────────┘
-         ↕ HTTP
-┌─────────────────────────────────────────────────────────┐
-│  api-services           → Tanak sloj (HTTP pozivi)      │
-│  modules/admin/uplate   → Komponente (UI + logika)      │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Koji projekat se pokreće?
-
-| Projekt | Kako pokrenuti | Za šta |
-|---------|----------------|--------|
-| Backend | Visual Studio → F5 ili `dotnet run` u `Market.API` | API + Swagger |
-| Frontend | Terminal u `rs1-frontend-2025-26` → `npm install` pa `npm start` | Angular app |
-
-Oba moraju raditi istovremeno.
-
-### Gdje je Model?
-
-**Model** = entitet u Domain sloju.
-
-Za ovaj zadatak pogledaj:
-
-- `UplataEntity.cs` — roditelj (broj, narudžba, napomena, ukupan iznos)
-- `OrderEntity.cs` — polja `TotalAmountPaid`, `BalanceDue`, `Status`
-- `OrderItemEntity.cs` — stavke narudžbe (koji proizvodi pripadaju narudžbi)
-- `NacinPlacanjaType.cs` — enum Keš/Kartica
-
-**Novi model koji ti kreiraš:** `UplataLinijaEntity` (stavka uplate).
-
-### Gdje je DbContext?
-
-- `DatabaseContext.cs` — implementacija
-- `IAppDbContext.cs` — interfejs koji Handler koristi
-
-Trenutno postoji `DbSet<UplataEntity> Uplate`. Trebat će dodati `DbSet` za linije.
-
-### Gdje su „forme"?
-
-U Angularu nema `.cs` formi — **komponente su forme:**
-
-- `uplate.component` = lista
-- `uplata-add.component` = forma za dodavanje
-
-HTML je u `.html`, logika u `.ts`.
-
-### Gdje su event handleri?
-
-U `.ts` fajlu komponente, povezani u HTML-u:
-
-| HTML | Metoda u .ts |
-|------|--------------|
-| `(click)="onNovaUplata()"` | Otvara stranicu za novu uplatu |
-| `(click)="onSubmit()"` | Šalje formu |
-| `(selectionChange)="onOrderChange($event.value)"` | Mijenja listu proizvoda |
-| `(click)="addItem()"` | Dodaje stavku u FormArray |
-
-### Kako pronaći mjesto za novi kod?
-
-**Pravilo:** Nađi najsličniji gotov primjer, pa prati lanac.
-
-| Šta radiš | Gdje gledaš uzor |
-|-----------|------------------|
-| Novi entitet | `OrderItemEntity` (stavka unutar roditelja) |
-| EF konfiguracija 1:N | `OrderShipmentConfiguration` (HasOne/WithMany) |
-| Create Command | `CreateProductCommand` / `CreateOrderCommand` |
-| Lista s paginacijom | `products.component.ts` + `BaseListPagedComponent` |
-| FormArray | `uplata-add.component.ts` (već započeto!) |
-| Učitavanje narudžbi | `products-add` učitava kategorije — isti princip |
-
----
-
-## 3. Koraci rješavanja od početka do kraja
-
----
-
-### FAZA A — Razumijevanje postojećih entiteta
-
-#### Korak A1: Otvori `UplataEntity.cs`
-
-- **Pregledaj:** `BrojUplate`, `OrderId`, `Napomena`, `UkupanIznos`
-- **Razmisli:** Gdje će živjeti stavke? → Treba kolekcija `Linije` ili zaseban entitet s `UplataId`
-- **Zašto važno:** Bez ovoga ne znaš šta širiš u bazi
-
-#### Korak A2: Otvori `OrderEntity.cs`
-
-- **Pregledaj:** `TotalAmount`, `TotalAmountPaid`, `BalanceDue`, `Status`
-- **Razmisli:** Ova polja **ti ažuriraš** u Create Handleru
-- **Zašto važno:** Ovo je srž poslovne logike zadatka
-
-#### Korak A3: Otvori `OrderStatusType.cs`
-
-- **Pronađi:** `PartiallyPaid = 6` i `Paid = 3`
-- **Zašto važno:** Znaš koje vrijednosti postaviti nakon uplate
-
-#### Korak A4: Otvori `NacinPlacanjaType.cs`
-
-- **Pronađi:** `Kes = 1`, `Kartica = 2`
-- **Zašto važno:** Isti enum koristiš na BE i FE (`uplate-api.models.ts`)
-
----
-
-### FAZA B — Domain: novi entitet UplataLinija
-
-#### Korak B1: Kreiraj `UplataLinijaEntity.cs` u `Market.Domain/Entities/Sales/`
-
-- **Šta treba imati (razmisli sama o imenima):**
-  - Veza na uplatu (`UplataId` + navigacija)
-  - Koji proizvod (`ProductId`)
-  - Količina
-  - Način plaćanja (`NacinPlacanjaType`)
-  - Možda iznos te linije (količina × cijena) — olakšava prikaz i debug
-- **Zašto:** Stavka ne može postojati bez roditeljske uplate
-- **Uzor:** Pogledaj kako `OrderItemEntity` povezuje `OrderId` i `ProductId`
-
-#### Korak B2: Proširi `UplataEntity`
-
-- Dodaj kolekciju linija (npr. `IReadOnlyCollection<UplataLinijaEntity> Linije`)
-- **Zašto:** EF i poslovna logika trebaju znati za 1:N vezu
-
----
-
-### FAZA C — Infrastructure: baza podataka
-
-#### Korak C1: Kreiraj `UplataLinijaConfiguration.cs`
-
-- **Otvori uzor:** `UplataConfiguration.cs`, `OrderItemConfiguration.cs`
-- **Postavi:** tabela, max dužine, FK na `Uplata` i `Product`
-- **Delete behavior:** obično `Restrict` (ne briši uplatu ako ima linije bez plana)
-
-#### Korak C2: Dodaj `DbSet` u `DatabaseContext.cs` i `IAppDbContext.cs`
-
-- **Zašto:** Handler mora moći pristupiti linijama kroz `ctx`
-
-#### Korak C3: Napravi migraciju
-
-- U terminalu (iz Infrastructure projekta) pokreni `dotnet ef migrations add ...`
-- Zatim `dotnet ef database update` (ili pokreni app ako se migracija radi automatski)
-- **Pazi:** Na ispitu pitaj profesora da li treba migracija ili je baza već spremna
-
-#### Korak C4: Ažuriraj seed (opciono ali preporučeno)
-
-- **Otvori:** `DynamicDataSeeder.cs` → `SeedUplateAsync`
-- **Problem:** Demo uplate nemaju linije, `UkupanIznos` je hardkodiran
-- **Rješenje:** Kreiraj linije i izračunaj `UkupanIznos` iz njih
-- **Zašto:** Da lista ima smislen podatak za test
-
----
-
-### FAZA D — Backend: Create Command (srž zadatka)
-
-#### Korak D1: Kreiraj folder `Commands/Create/` u `Modules/Sales/Uplate/`
-
-Struktura kao kod Products:
-
-- `CreateUplataCommand.cs`
-- `CreateUplataCommandHandler.cs`
-- `CreateUplataCommandValidator.cs`
-
-#### Korak D2: CreateUplataCommand — šta prima API?
-
-Roditelj:
-
-- `BrojUplate`
-- `OrderId`
-- `Napomena` (opciono)
-
-Djeca — **lista stavki**, svaka s:
-
-- `ProductId`
-- `Kolicina` (ili `Quantity` — uskladi s konvencijom projekta)
-- `NacinPlacanja`
-
-**Zašto lista u Commandu:** Jedan HTTP POST šalje cijelu uplatu odjednom.
-
-#### Korak D3: CreateUplataCommandValidator
-
-- `BrojUplate` — obavezno, max dužina iz `UplataEntity.Constraints`
-- `OrderId` — obavezno, > 0
-- `Napomena` — max dužina ako nije prazna
-- **Stavke** — lista ne smije biti prazna
-- Svaka stavka: proizvod obavezan, količina >= 1, način plaćanja obavezan
-
-#### Korak D4: CreateUplataCommandHandler — logika korak po korak
-
-Ovo je **najvažniji** dio cijelog modula. Razmisli o ovom redoslijedu:
-
-**1. Učitaj narudžbu**
-
-- Pronađi `Order` po `OrderId` (s `Items` i `Product` ako treba)
-- Ako ne postoji → `MarketNotFoundException`
-
-**2. Validiraj stavke**
-
-- Svaki `ProductId` mora postojati u `Order.Items`
-- Količina ne smije biti veća od količine u narudžbi (razmisli: da li smiješ platiti više nego što je naručeno? Zadatak implicira da ne)
-
-**3. Spoji linije (merge pravilo)**
-
-- Grupiraj stavke po `(ProductId, NacinPlacanja)`
-- Za iste parove — zbroji količine u jednu liniju
-- Za isti proizvod, različit način — ostavi odvojeno
-
-**4. Izračunaj iznos svake linije**
-
-- Uzmi **cijenu proizvoda bez popusta** (iz `Product.Price` ili `OrderItem.UnitPrice` — pročitaj zadatak pažljivo: piše „jedinična cijena na nivou proizvoda")
-- Iznos linije = količina × jedinična cijena
-
-**5. Izračunaj `UkupanIznos` uplate**
-
-- Zbroj svih linija
-
-**6. Kreiraj `UplataEntity`**
-
-- Popuni polja, dodaj linije u kolekciju
-
-**7. Ažuriraj `OrderEntity`**
-
-- `TotalAmountPaid` += `UkupanIznos`
-- `BalanceDue` = `TotalAmount` − `TotalAmountPaid`
-- Status:
-  - `BalanceDue > 0` → `PartiallyPaid`
-  - `BalanceDue == 0` → `Paid` (i možda `PaidAtUtc`?)
-
-**8. Snimi**
-
-- `ctx.Uplate.Add(uplata)` ili dodaj linije zasebno
-- `SaveChangesAsync`
-- Vrati novi `Id`
-
-**Na šta paziti:**
-
-- Sve u **jednoj transakciji** (`SaveChangesAsync` jednom na kraju)
-- Zaokruživanje decimala — budi konzistentna
-- Ne ažuriraj narudžbu na frontendu — samo na backendu!
-
-#### Korak D5: Dodaj POST u `UplateController.cs`
-
-- **Uzor:** `ProductsController.Create`
-- Prima `CreateUplataCommand`, vraća `id`
-
-#### Korak D6: Test u Swaggeru
-
-- POST uplata s 1–2 stavke
-- GET lista — vidi li se nova uplata?
-- Provjeri u bazi ili GET narudžbe — jesu li `TotalAmountPaid`, `BalanceDue`, `Status` ispravni?
-
----
-
-### FAZA E — Frontend: API sloj
-
-#### Korak E1: Proširi `uplate-api.models.ts`
-
-- Dodaj interface za stavku u Create commandu
-- Dodaj `CreateUplataCommand` interface
-- Provjeri da enum `NacinPlacanjaType` odgovara backendu
-
-#### Korak E2: Proširi `uplate-api.service.ts`
-
-- Dodaj metodu `create(payload)` → `POST /Uplate`
-- **Uzor:** `products-api.service.ts` → `create()`
-- Bez toast-a u servisu — to radi komponenta
-
----
-
-### FAZA F — Frontend: Lista uplata (paginacija)
-
-#### Korak F1: Otvori `uplate.component.ts`
-
-- **Problem:** Ručno poziva `list(1, 100)` — nema prave paginacije
-- **Rješenje:** Naslijedi `BaseListPagedComponent` (kao `products.component.ts`)
-
-#### Korak F2: Prilagodi API servis
-
-- Umjesto `list(pageNumber, pageSize)` koristi `ListUplateRequest` s `BasePagedQuery` i `buildHttpParams`
-- **Zašto:** Konzistentno s ostatkom projekta
-
-#### Korak F3: Implementiraj `loadPagedData()`
-
-- Pozovi API s `this.request`
-- U `next` → `handlePageResult(response)`
-
-#### Korak F4: Dodaj paginaciju u HTML
-
-- **Uzor:** `products.component.html` — „Stranica X od Y", dugmad Prethodna/Sljedeća, izbor broja po stranici
-- **Profesor posebno naglašava paginaciju** — ne preskoči UI!
-
-#### Korak F5: NE dodaj edit/delete kolone
-
-- Zadatak eksplicitno kaže da nisu potrebne
-
----
-
-### FAZA G — Frontend: Forma za dodavanje (master-detail)
-
-#### Korak G1: Očitaj postojeći `uplata-add.component.ts`
-
-- Već ima `FormGroup` s `FormArray` za `items`
-- Već ima `addItem()` i `removeItem()`
-- **Nedostaje:** validatori, učitavanje narudžbi, submit logika
-
-#### Korak G2: Učitaj narudžbe u `ngOnInit`
-
-- Injektuj `OrdersApiService`
-- Pozovi `listWithItems()` s velikim page size (`largePaging` helper)
-- Spremi u `this.narudzbe`
-- **Zašto `with-items`:** Treba ti lista proizvoda po narudžbi za dropdown
-
-#### Korak G3: Poveži HTML s formom (`formControlName`)
-
-Starter **nema** binding — moraš dodati:
-
-| Polje | formControlName |
-|-------|-----------------|
-| Broj uplate | `brojUplate` |
-| Narudžba | `orderId` |
-| Napomena | `napomena` |
-| Proizvod (stavka) | `productId` |
-| Količina | `kolicina` |
-| Način plaćanja | `nacinPlacanja` |
-
-**Zašto:** Bez `formControlName` Angular ne zna šta je u formi — `form.invalid` ne radi ispravno.
-
-#### Korak G4: Popuni `mat-select` za način plaćanja
-
-- Dodaj `mat-option` za Keš i Kartica
-- Vrijednosti: brojevi iz enuma (1 i 2)
-- Možeš imati niz `nacinPlacanjaOptions` u komponenti s `id` i `name`
-
-#### Korak G5: Dodaj Validators u `FormGroup`
-
-- `brojUplate`: `Validators.required`
-- `orderId`: `Validators.required`
-- Stavke: `productId`, `kolicina` (min 1), `nacinPlacanja` — required
-- **Zašto:** Dugme Sačuvaj koristi `[disabled]="form.invalid"`
-
-#### Korak G6: `onOrderChange` — filtriraj proizvode
-
-- Kad korisnik odabere narudžbu, postavi `selectedOrderItems`
-- Dropdown proizvoda prikazuje samo `selectedOrderItems`
-- **Pazi:** Imena polja u DTO-u — backend šalje `product.productId`, frontend template možda očekuje `product.id`. **Uskladi** ih!
-
-#### Korak G7: Implementiraj `onSubmit()`
-
-Redoslijed:
-
-1. `form.markAllAsTouched()`
-2. Ako `form.invalid` → return
-3. `isSaving = true`
-4. Sastavi `CreateUplataCommand` iz `form.value`
-5. Pozovi `uplateApiService.create(command).subscribe(...)`
-6. Uspjeh → `toaster.success(...)` + navigacija na `/admin/uplate`
-7. Greška → `toaster.error(...)` + `isSaving = false`
-
-**Napomena o merge pravilu:** Možeš spajati linije na frontendu prije slanja **ili** prepustiti backendu. **Sigurnije je na backendu** — tamo će profesor i testirati.
-
-#### Korak G8: Minimalan broj stavki
-
-- Zadatak kaže: uplata mora imati barem jednu liniju
-- Ukloni početne dvije prazne stavke ako zbunjuju, ili ostavi jednu
-- Validiraj da `items.length >= 1`
-
----
-
-### FAZA H — Testiranje cijelog toka
-
-#### Korak H1: Lista
-
-- [ ] Uplate se učitavaju s API-ja (ne hardkod)
-- [ ] Paginacija mijenja stranice
-- [ ] Prikaz: broj, narudžba, datum, iznos
-
-#### Korak H2: Dodavanje
-
-- [ ] Narudžbe se učitavaju u dropdown
-- [ ] Odabir narudžbe mijenja proizvode
-- [ ] Način plaćanja ima opcije
-- [ ] Sačuvaj disabled dok forma nije validna
-- [ ] Toast na uspjeh/grešku
-- [ ] Povratak na listu s novom uplatom
-
-#### Korak H3: Poslovna logika
-
-- [ ] Djelomična uplata → narudžba `PartiallyPaid`
-- [ ] Puna uplata → narudžba `Paid`, `BalanceDue = 0`
-- [ ] Isti proizvod + isti način → spojene količine
-- [ ] Isti proizvod + različit način → odvojene linije
-
----
-
-## 4. Objašnjenje pojmova
-
-### LINQ
-
-- **Šta je:** Način pisanja upita nad podacima u C#
-- **Kada:** U Handleru — filtriranje, grupiranje, projekcija
-- **Zašto:** Spajanje linija = `GroupBy` po proizvodu i načinu plaćanja
-- **Primjer (općenito):** „Grupiraj listu knjiga po autoru i prebroji ih"
-
-### Lambda izrazi
-
-- **Šta je:** Kratka funkcija: `x => x.OrderId == 5`
-- **Kada:** U `.Where()`, `.Select()`, `.GroupBy()`
-- **Primjer:** `.Where(x => x.Kolicina > 0)`
-
-### Include
-
-- **Šta je:** Učitava povezane entitete iz baze u jednom upitu
-- **Kada:** Kad trebaš `order.Items` i `item.Product` u Handleru
-- **Primjer:** `ctx.Orders.Include(o => o.Items).ThenInclude(i => i.Product)`
-- **Alternativa:** Projekcija s `Select` (kao u `ListOrdersWithItemsQueryHandler`)
-
-### Where
-
-- **Šta je:** Filtrira podatke
-- **Kada:** „Samo narudžbe ovog korisnika", „Samo proizvodi iz narudžbe"
-- **Primjer:** `.Where(x => x.OrderId == request.OrderId)`
-
-### Select
-
-- **Šta je:** Pretvara entitet u drugi oblik (npr. DTO)
-- **Kada:** U Query Handlerima za listu
-- **Primjer:** `.Select(x => new ListDto { Name = x.BrojUplate })`
-
-### OrderBy
-
-- **Šta je:** Sortira rezultate
-- **Kada:** Lista uplata — najnovije prvo (`OrderByDescending` po datumu)
-- **Primjer:** `.OrderByDescending(x => x.CreatedAtUtc)`
-
-### Entity Framework (EF)
-
-- **Šta je:** ORM — mapira C# klase na tabele u bazi
-- **Kada:** Cijeli backend koristi EF za čitanje/pisanje
-- **Zašto:** Ne pišeš SQL ručno — koristiš `ctx.Uplate`, `ctx.SaveChangesAsync()`
-
-### DbSet
-
-- **Šta je:** „Tabela" u kodu — `ctx.Uplate`, `ctx.Orders`
-- **Kada:** Svaki Handler koji pristupa bazi
-
-### Foreign Key (FK)
-
-- **Šta je:** Broj koji povezuje dvije tabele
-- **Kada:** `Uplata.OrderId` → `Order.Id`, `UplataLinija.UplataId` → `Uplata.Id`
-- **Kako prepoznati u zadatku:** „Uplata je vezana za narudžbu"
-
-### Navigation Property
-
-- **Šta je:** Objektni link — `uplata.Order`, `linija.Product`
-- **Kada:** Čitaš podatke povezanog entiteta bez ručnog join-a
-
-### DTO
-
-- **Šta je:** Klasa samo za prenos podataka kroz API
-- **Kada:** `ListUplateQueryDto`, Command za Create
-- **Zašto:** Ne izlažeš internu strukturu baze
-
-### Validacija
-
-- **Backend:** `AbstractValidator<T>` — FluentValidation
-- **Frontend:** `Validators.required`, `Validators.min(1)` u FormGroup
-- **Zašto oba:** FE = brz feedback, BE = sigurnost
-
-### Event Handler
-
-- **Šta je:** Funkcija koja reaguje na korisnikovu akciju
-- **Kada:** Klik, promjena selecta, submit forme
-- **Primjer:** `(click)="onSubmit()"` poziva metodu `onSubmit()` u komponenti
-
-### ComboBox → mat-select
-
-- **Šta je:** Padajući meni
-- **Kada:** Narudžba, proizvod, način plaćanja
-- **Kako prepoznati:** „Korisnik bira iz liste"
-
-### DataGridView → mat-table
-
-- **Šta je:** Tabela s redovima i kolonama
-- **Kada:** Lista uplata
-
-### BindingSource → FormGroup / FormArray
-
-- **Šta je:** Izvor podataka za formu
-- **Kada:** `FormGroup` za uplatu, `FormArray` za dinamičke stavke
-- **Zašto FormArray:** Broj stavki nije fiksan — korisnik dodaje/uklanja
-
-### MessageBox → ToasterService
-
-- **Šta je:** Kratka poruka korisniku
-- **Kada:** Nakon uspješnog čuvanja ili greške
-- **Primjer:** `this.toaster.success('Uplata uspješno kreirana')`
-
-### Async metode
-
-- **Šta je:** Metode koje čekaju rezultat (baza, HTTP) bez blokiranja
-- **Kada:** `async Task` u Handleru, `.subscribe()` na frontendu
-- **Zašto:** API pozivi traju — ne smiješ zamrznuti UI
-
-### Master-detail (roditelj-dijete)
-
-- **Šta je:** Jedan glavni zapis (uplata) + više podzapisa (stavke)
-- **Kada:** Forma za uplatu
-- **U bazi:** 1:N relacija
-- **U Angularu:** `FormGroup` + `FormArray`
-- **Primjer iz života:** Račun (glava) + stavke računa (redovi)
-
----
-
-## 5. Vizuelni tok izvršavanja
-
-### 5.1 Otvaranje liste uplata
-
-```
-Korisnik klikne "Uplata (Modul 2)" u sidebaru
-        ↓
-Router otvara UplateComponent
-        ↓
-ngOnInit() → initList() → loadPagedData()
-        ↓
-UplateApiService.list(request)  — HTTP GET /Uplate?Paging.Page=1&...
-        ↓
-UplateController → ListUplateQuery → ListUplateQueryHandler
-        ↓
-Handler: ctx.Uplate → OrderByDescending → Select u DTO → PageResult
-        ↓
-Frontend: handlePageResult() → mat-table prikazuje redove
-        ↓
-Korisnik vidi: UPL-0001, ORD-0001, datum, 500 KM
-```
-
-**U pozadini:** Nema pisanja u bazu — samo čitanje. `AsNoTracking()` znači EF ne prati promjene (brže za listu).
-
----
-
-### 5.2 Otvaranje forme za novu uplatu
-
-```
-Korisnik klikne "+ Nova uplata"
-        ↓
-Router → /admin/uplate/add → UplataAddComponent
-        ↓
-ngOnInit(): OrdersApiService.listWithItems() — HTTP GET /Orders/with-items
-        ↓
-OrdersController → Handler vraća narudžbe SA stavkama (proizvodi)
-        ↓
-narudzbe[] popunjen → mat-select za narudžbu ima opcije
-        ↓
-Forma prikazana: prazna polja + početne stavke u FormArray
-```
-
-**U pozadini:** Narudžbe se učitavaju jer trebaš znati koji proizvodi pripadaju kojoj narudžbi.
-
----
-
-### 5.3 Popunjavanje forme
-
-```
-Korisnik unese broj uplate "UPL-0010"
-        ↓
-formControlName="brojUplate" → FormGroup ažuriran
-        ↓
-Korisnik odabere narudžbu ORD-0004
-        ↓
-(selectionChange) → onOrderChange(orderId)
-        ↓
-selectedOrderItems = proizvodi iz te narudžbe
-        ↓
-Dropdown proizvoda prikazuje SAMO te proizvode
-        ↓
-Korisnik doda stavku: Laptop × 1, Keš
-        ↓
-Korisnik klikne "Dodaj stavku" → addItem() → nova grupa u FormArray
-        ↓
-Validators provjeravaju: ako sve OK → dugme Sačuvaj aktivno
-```
-
-**U pozadini:** Reactive Forms drže stanje forme u memoriji. HTML je samo prikaz — pravi podaci su u `this.form.value`.
-
----
-
-### 5.4 Čuvanje uplate
-
-```
-Korisnik klikne "Sačuvaj"
-        ↓
-onSubmit() → form.markAllAsTouched()
-        ↓
-Ako form.invalid → STOP (ne šalje se)
-        ↓
-Sastavi CreateUplataCommand iz form.value
-        ↓
-HTTP POST /Uplate → UplateController → MediatR
-        ↓
-ValidationBehavior → CreateUplataCommandValidator
-        ↓
-CreateUplataCommandHandler:
-    1. Učitaj narudžbu
-    2. Validiraj proizvode
-    3. Spoji linije (merge)
-    4. Izračunaj iznose
-    5. Kreiraj Uplata + Linije
-    6. Ažuriraj Order (TotalAmountPaid, BalanceDue, Status)
-    7. SaveChangesAsync()
-        ↓
-Vraća se novi Id
-        ↓
-Frontend: toaster.success() + router.navigate(['/admin/uplate'])
-        ↓
-Lista se ponovo učitava — nova uplata vidljiva
-```
-
-**U pozadini:** Jedan `SaveChangesAsync` snima uplatu, linije i ažuriranu narudžbu u **jednoj transakciji**. Ako nešto pukne — ništa se ne snimi.
-
----
-
-## 6. Najčešće greške studenata
-
-### Gdje studenti griješe
-
-| # | Greška | Posljedica |
-|---|--------|------------|
-| 1 | Zaborave `UplataLinijaEntity` | Uplata nema stavki u bazi |
-| 2 | Cijena **s popustom** umjesto bez | Pogrešan `UkupanIznos` |
-| 3 | Ne ažuriraju `Order` | Status narudžbe ostaje isti |
-| 4 | Logika samo na frontendu | Zaobilazi se validacija — pogrešni podaci u bazi |
-| 5 | Nema `formControlName` | Forma uvijek invalid ili prazna |
-| 6 | `narudzbe = []` — ne učitaju API | Prazan dropdown narudžbi |
-| 7 | Paginacija hardkodirana | Profesor vidi da ne radi |
-| 8 | Pišu Update/Delete | Gube vrijeme — nisu potrebni |
-| 9 | Pogrešno ime polja FE vs BE | 400 Bad Request |
-| 10 | Zaborave migraciju | Tabela za linije ne postoji |
-| 11 | `product.id` vs `product.productId` | Dropdown ne šalje ispravan ID |
-| 12 | Nema validacije „proizvod iz narudžbe" | Može se platiti bilo šta |
-
-### Kako izbjeći greške
-
-- **Swagger prvo** — testiraj POST prije frontenda
-- **Uporedi s Products** — ista struktura, druga logika
-- **Čitaj exception** — `MarketNotFoundException`, `ValidationException`
-- **Network tab** — vidi šta frontend šalje i šta backend vraća
-- **Jedan korak = jedan test** — ne piši sve odjednom
-
-### Kako debugovati
-
-**1. Backend ne radi**
-
-```
-Swagger → POST /Uplate → pogledaj response body
-```
-
-- 400 = validacija — pročitaj koja polja
-- 404 = narudžba/proizvod ne postoji
-- 500 = greška u Handleru — čitaj stack trace u konzoli API-ja
-
-**2. Frontend ne šalje podatke**
-
-```
-Browser F12 → Network → klikni POST zahtjev → Payload
-```
-
-- Je li `orderId` broj, ne string?
-- Je li `items` niz s ispravnim poljima?
-
-**3. Forma uvijek invalid**
-
-```
-U komponenti privremeno: console.log(this.form.value, this.form.errors)
-```
-
-- Koje polje faila? `form.get('brojUplate')?.errors`
-
-**4. Dropdown proizvoda prazan**
-
-- Je li `onOrderChange` pozvan?
-- Ima li odabrana narudžba `items` u odgovoru API-ja?
-
-### Kako čitati exception poruke
-
-| Poruka | Značenje | Šta uraditi |
-|--------|----------|-------------|
-| `Validation failed` | Validator odbio podatke | Pročitaj koja pravila |
-| `not found` | Entitet ne postoji u bazi | Provjeri Id |
-| `FK constraint` | Pogrešan Foreign Key | OrderId/ProductId ne postoji |
-| `NullReferenceException` | Pristup null objektu | Provjeri Include / null check |
-
----
-
-## 7. Kako razmišljati na ispitu
-
-### Kada dobiješ zadatak, uradi ovo:
-
----
-
-#### KORAK 1: Pročitaj zahtjeve (5–10 minuta — ne preskači!)
-
-**Šta uraditi:**
-
-- Pročitaj cijeli tekst
-- Podvuci: obavezna polja, automatska polja, poslovna pravila
-- Napiši na papir:
-
-```
-Entiteti: Uplata, UplataLinija, Order (ažuriranje)
-Operacije: Lista + Create (NE edit/delete)
-Posebno: master-detail, paginacija, ažuriranje narudžbe
-```
-
-**Zašto:** 10 minuta planiranja štedi 30 minuta lutanja.
-
----
-
-#### KORAK 2: Pronađi odgovarajuće klase (5 minuta)
-
-**Šta uraditi:**
-
-- Otvori `UplataEntity`, `OrderEntity`
-- Otvori `uplate.component.ts`, `uplata-add.component.ts`
-- Otvori `UplateController`, `ListUplateQueryHandler`
-- Otvori `products.component.ts` kao uzor za paginaciju
-
-**Zašto:** Vidiš šta postoji, šta nedostaje.
-
----
-
-#### KORAK 3: Analiziraj veze između modela (5 minuta)
-
-Nacrtaj na papir:
-
-```
-Order (1) ──────< (N) Uplata (1) ──────< (N) UplataLinija
-  │                                              │
-  │                                              └──> Product
+Order (1) ──< (N) Uplata (1) ──< (N) UplataLinija
+  │                                      │
+  │                                      └──> Product
   └──< (N) OrderItem ──> Product
 ```
 
-**Pitanja koja si postavi:**
-
-- Šta je roditelj, šta dijete?
-- Koji FK gdje ide?
-- Šta se mijenja na Order kad se kreira Uplata?
-
-**Zašto:** Master-detail bez razumijevanja veza = greške u migraciji i Handleru.
+- Proizvod na liniji uplate **mora** biti jedan od proizvoda na **odabranoj narudžbi**.
+- Iznos se računa iz **cijene proizvoda bez popusta**, ne iz `OrderItem.Total`.
 
 ---
 
-#### KORAK 4: Isplaniraj rješenje (5 minuta)
+## 6. Mapa pojmova
 
-Napiši redoslijed:
+| Pojam s vježbi | U ovom projektu |
+|----------------|-----------------|
+| Forma | `uplate` (lista), `uplata-add` (master-detail) |
+| ComboBox | `mat-select` (narudžba, proizvod, način plaćanja) |
+| DataGridView | `mat-table` |
+| BindingSource | `FormGroup` + `FormArray` |
+| MessageBox | `ToasterService` |
+| Repository | Nema — `IAppDbContext` |
+| Master-detail | Uplata + linije; `FormArray` |
+
+---
+
+## 7. Kako čitati zadatak
+
+Pročitaj tekst **tri puta**:
+
+1. Šta korisnik vidi i klikće?
+2. Koja polja su obavezna?
+3. Šta se dešava **u pozadini** kad se uplata snimi?
+
+Podvuci: *automatski*, *mora*, *nije potrebno*, *bez popusta*, *paginacija*.
+
+### Lista (Read)
+
+- Kolone: **broj uplate**, **broj narudžbe**, **datum kreiranja**, **ukupan iznos**.
+- Paginacija (stranica + broj zapisa po stranici).
+- Dugme **Nova uplata**.
+- **Bez** edit/delete kolona.
+
+### Forma (Create)
+
+**Roditelj**
+
+| Polje | Obavezno |
+|-------|----------|
+| Broj uplate | Da (max 20, vidi `Constraints`) |
+| Narudžba | Da |
+| Napomena | Ne (max 500) |
+
+**Djeca (barem jedna stavka)**
+
+| Polje | Obavezno | Napomena |
+|-------|----------|----------|
+| Proizvod | Da | Samo proizvodi **odabrane** narudžbe |
+| Količina | Da | ≥ 1 |
+| Način plaćanja | Da | `Kes` ili `Kartica` |
+
+Korisnik dodaje/uklanja stavke dugmetom „Dodaj stavku".
+
+### Poslovna logika pri Create
+
+1. **UkupanIznos** = zbroj linija.
+2. Iznos linije = **količina × jedinična cijena proizvoda, BEZ popusta**.
+   - Uzmi `Product.Price` ili `OrderItem.UnitPrice`.
+   - **Ne uzimaj** `OrderItem.Total` ni `DiscountAmount`.
+3. Ažuriraj narudžbu:
+   - `TotalAmountPaid` += `UkupanIznos`
+   - `BalanceDue` = `TotalAmount` − `TotalAmountPaid`
+   - ako `BalanceDue > 0` → `Status = PartiallyPaid`
+   - ako `BalanceDue == 0` → `Status = Paid` (ako zadatak spominje datum plaćanja, postavi i `PaidAtUtc`)
+4. **Merge linija:**
+   - isti proizvod + **isti** način plaćanja → **saberi količine**, jedna linija
+   - isti proizvod + **različit** način → **odvojene** linije
+
+Ova logika ide u **Handler**, ne u Angular.
+
+### Ključne riječi
+
+| Riječ | Šta radiš |
+|-------|-----------|
+| Master-detail / linija uplate | Novi entitet + `FormArray` |
+| PartiallyPaid / Paid | Mijenjaš `Order.Status` |
+| BalanceDue | Računaš na backendu |
+| Bez popusta | `Product.Price` / `UnitPrice`, ne `Total` |
+| Nije potrebno edit/delete | Ne radiš to |
+| Paginacija | Popravi starter — trenutno ne radi |
+
+---
+
+## 8. Opšta strategija
 
 ```
-□ UplataLinijaEntity
-□ EF config + migracija
-□ Create Command/Handler/Validator
-□ POST u Controller
-□ Swagger test
-□ API servis create()
-□ Lista — paginacija
-□ Forma — binding + učitaj narudžbe + submit
-□ Test cijelog toka
+1. Pročitaj zadatak — posebno izračun i status narudžbe
+2. Domain: UplataLinijaEntity + kolekcija na UplataEntity
+3. Infrastructure: EF config + DbSet + migracija
+4. Backend Create (najteži dio) → Swagger POST
+5. Provjeri narudžbu u bazi / GET Orders/{id}
+6. Frontend: popravi listu (paginacija)
+7. Frontend: forma (binding, narudžbe, submit)
+8. Ručni test cijelog toka
 ```
 
-**Zašto:** Štikliraš korake — vidiš napredak, ne paničiš.
+**Zašto prvo baza i Handler?** Bez tabele linija ne možeš snimiti stavke. Bez POST-a frontend nema kuda slati. Frontend **ne smije** sam mijenjati `TotalAmountPaid`.
 
 ---
 
-#### KORAK 5: Tek onda počni pisati kod
+## 9. Backend — korak po korak
 
-**Pravilo:**
+U Application fajlovima koji koriste Sales entitete dodaj:
 
-> Prvo ono bez čega ništa drugo ne radi.
+`using Market.Domain.Entities.Sales;`
 
-To znači: **entitet → baza → Create Handler → Swagger → frontend**.
-
-Ne počinji od HTML-a ako API ne postoji.
+MediatR/FluentValidation se registruju sami. Ne diraš `Program.cs`.
 
 ---
 
-### Mantra za Modul 2
+### FAZA A — Pročitaj postojeće (ne pišeš još)
 
-> **Master-detail = jedan roditelj, više djece — u bazi, u Commandu i u FormArray.**
+#### Korak A1: `UplataEntity.cs`
 
-> **Poslovna logika narudžbe ide u Handler, ne u Angular.**
+Polja: `BrojUplate`, `OrderId`, `Order`, `Napomena`, `UkupanIznos`.
 
-> **Paginacija i formControlName — profesor eksplicitno traži.**
+`Constraints`: `BrojUplateMaxLength = 20`, `NapomenaMaxLength = 500`.
 
-> **Nema edit/delete — ne gubi vrijeme.**
+**Nema linija.** To dodaješ.
+
+Nasljeđuje `BaseEntity` → `Id`, `IsDeleted`, `CreatedAtUtc`, `ModifiedAtUtc`. Datum na listi dolazi iz `CreatedAtUtc` (handler ga mapira u `DatumKreiranja`).
+
+#### Korak A2: `OrderEntity.cs`
+
+Ovo **ti ažuriraš** u Create Handleru:
+
+- `TotalAmount` — ukupan iznos narudžbe (ne diraj osim ako zadatak kaže)
+- `TotalAmountPaid` — sabiraš uplate
+- `BalanceDue` — preostali dug
+- `Status` — `Paid` / `PartiallyPaid`
+- `PaidAtUtc` — opciono kad je potpuno plaćeno
+- `Items` — stavke narudžbe (da znaš koji proizvodi smiju na uplatu)
+
+#### Korak A3: `OrderItemEntity.cs`
+
+- `ProductId`, `Quantity`, `UnitPrice` (cijena bez popusta u trenutku narudžbe)
+- `Total` = s popustom ← **ne koristi za uplatu**
+
+#### Korak A4: Enumi
+
+`NacinPlacanjaType`: `Kes = 1`, `Kartica = 2`.
+
+`OrderStatusType`: `Paid = 3`, `PartiallyPaid = 6`.
+
+#### Korak A5: Lista je već gotova
+
+Otvori `ListUplateQueryHandler.cs`. Već radi `AsNoTracking`, sort po `CreatedAtUtc` descending, `Select` u DTO, `PageResult`.
+
+**Ne diraj listu na backendu** osim ako nešto stvarno ne radi. Posao na listi je uglavnom **frontend paginacija**.
+
+#### Korak A6: Uzor 1:N
+
+Otvori `OrderItemEntity` + `OrderItemConfiguration`:
+
+- `OrderId` + navigacija `Order`
+- `WithMany(x => x.Items)`
+- `OnDelete(Cascade)` kad se briše roditelj
+
+Linija uplate prati isti obrazac prema `Uplata`.
 
 ---
 
-## Dodatni resursi u tvom projektu
+### FAZA B — Domain: `UplataLinijaEntity`
+
+#### Korak B1: Novi fajl
+
+**Gdje:** `Market.Domain/Entities/Sales/UplataLinijaEntity.cs`
+
+**Uzor:** `OrderItemEntity.cs`
+
+**Šta treba imati:**
+
+| Property | Tip | Zašto |
+|----------|-----|--------|
+| `UplataId` | `int` | FK na uplatu |
+| `Uplata` | `UplataEntity?` | navigacija |
+| `ProductId` | `int` | koji proizvod se plaća |
+| `Product` | `ProductEntity?` | navigacija (opciono, korisno) |
+| `Kolicina` | `decimal` ili `int` | uskladi s `OrderItem.Quantity` (`decimal`) |
+| `NacinPlacanja` | `NacinPlacanjaType` | Keš / Kartica |
+| `Iznos` | `decimal` | količina × cijena bez popusta — olakšava debug |
+
+Naslijedi `BaseEntity`.
+
+**Šta NE radiš:** ne praviš novi enum; ne praviš posebnu tabelu načina plaćanja.
+
+Primjer obrasca:
+
+```csharp
+using Market.Domain.Common;
+using Market.Domain.Entities.Catalog;
+
+namespace Market.Domain.Entities.Sales;
+
+public class UplataLinijaEntity : BaseEntity
+{
+    public required int UplataId { get; set; }
+    public UplataEntity? Uplata { get; set; }
+
+    public required int ProductId { get; set; }
+    public ProductEntity? Product { get; set; }
+
+    public required decimal Kolicina { get; set; }
+    public required NacinPlacanjaType NacinPlacanja { get; set; }
+    public required decimal Iznos { get; set; }
+}
+```
+
+#### Korak B2: Kolekcija na `UplataEntity`
+
+Kao `OrderEntity.Items`:
+
+```csharp
+public IReadOnlyCollection<UplataLinijaEntity> Linije { get; set; }
+    = new List<UplataLinijaEntity>();
+```
+
+**Provjera:** build Domain projekta prolazi.
+
+---
+
+### FAZA C — Infrastructure: baza
+
+#### Korak C1: `UplataLinijaConfiguration.cs`
+
+**Gdje:** `Market.Infrastructure/Database/Configurations/Sales/`
+
+**Uzor:** `OrderItemConfiguration.cs`
+
+- Tabela npr. `UplataLinije`
+- `HasOne(x => x.Uplata).WithMany(x => x.Linije).HasForeignKey(x => x.UplataId).OnDelete(Cascade)`
+  - Cascade: linije žive i umiru s uplatom (nemaš Delete u zadatku, ali EF treba znati vezu)
+- `HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(Restrict)`
+  - Restrict: ne briši proizvod ako postoji linija
+
+EF `ApplyConfigurationsFromAssembly` pokupi fajl sam — ne registruješ ručno.
+
+#### Korak C2: `DbSet`
+
+U **oba** mjesta:
+
+- `DatabaseContext.cs`
+- `IAppDbContext.cs`
+
+```csharp
+DbSet<UplataLinijaEntity> UplataLinije { get; }   // interfejs
+public DbSet<UplataLinijaEntity> UplataLinije => Set<UplataLinijaEntity>(); // context
+```
+
+Bez `IAppDbContext` Handler ne vidi `ctx.UplataLinije`.
+
+#### Korak C3: Migracija
+
+Aplikacija pri startu radi `ctx.Database.MigrateAsync()` (`DatabaseInitializer.cs`). **Moraš dodati migraciju**, inače tabela ne postoji.
+
+Iz foldera `rs1_backend-2025-26`:
+
+```
+dotnet ef migrations add AddUplataLinije --project Market.Infrastructure --startup-project Market.API
+```
+
+Zatim pokreni API — sam uradi update.
+
+Ako `dotnet ef` nije prepoznat:
+
+```
+dotnet tool install --global dotnet-ef
+```
+
+**Šta NE radiš:** ne pišeš SQL ručno; ne brišeš stare migracije.
+
+#### Korak C4: Seed — opciono
+
+`SeedUplateAsync` pravi 3 uplate bez linija i hardkodira `UkupanIznos`. Ako je baza već seedana, `AnyAsync()` sprečava ponovni seed.
+
+**Na ispitu:** ne gubi 20 minuta na seed. Lista i ovako ima 3 reda. Fokusiraj se da **novi POST** snimi linije i izračuna iznos. Seed doteraj samo ako stigneš.
+
+**Provjera:** API se podigne bez greške; u SSMS-u vidiš tabelu `UplataLinije`.
+
+---
+
+### FAZA D — Create Command (srž zadatka)
+
+**Gdje:** `Market.Application/Modules/Sales/Uplate/Commands/Create/`
+
+Uzor strukture: `Products/Commands/Create/`  
+Uzor logike s više entiteta: `CreateOrderCommandHandler.cs`  
+**Ne kopiraj** 5% popusta iz Create Order u uplatu.
+
+#### Korak D1: `CreateUplataCommand`
+
+Jedan POST = cijela uplata.
+
+```csharp
+public class CreateUplataCommand : IRequest<int>
+{
+    public string BrojUplate { get; set; }
+    public int OrderId { get; set; }
+    public string? Napomena { get; set; }
+    public List<CreateUplataCommandItem> Items { get; set; } = [];
+}
+
+public class CreateUplataCommandItem
+{
+    public int ProductId { get; set; }
+    public decimal Kolicina { get; set; }
+    public NacinPlacanjaType NacinPlacanja { get; set; }
+}
+```
+
+Ime `Items` neka se poklapa s Angular `form.value.items`.
+
+#### Korak D2: Validator
+
+Uzor: `CreateProductCommandValidator.cs`  
+Za listu: FluentValidation `RuleForEach`.
+
+Pravila:
+
+- `BrojUplate`: `NotEmpty`, `MaximumLength(UplataEntity.Constraints.BrojUplateMaxLength)`
+- `OrderId`: `GreaterThan(0)`
+- `Napomena`: `MaximumLength(500)` kad nije prazna
+- `Items`: `NotEmpty()` — barem jedna stavka
+- svaka stavka: `ProductId > 0`, `Kolicina >= 1`, `NacinPlacanja` `IsInEnum()`
+
+Ovo hvata loš JSON. **Poslovna** pravila (proizvod mora biti na narudžbi) idu u Handler jer trebaš bazu.
+
+#### Korak D3: Handler — redoslijed
+
+Ovo je najvažniji kod Modula 2. Radi **jedan** `SaveChangesAsync` na kraju.
+
+**1. Učitaj narudžbu sa stavkama i proizvodima**
+
+```csharp
+var order = await ctx.Orders
+    .Include(o => o.Items)
+        .ThenInclude(i => i.Product)
+    .FirstOrDefaultAsync(o => o.Id == request.OrderId, ct);
+```
+
+Ako nema → `MarketNotFoundException`.
+
+**2. Validiraj svaku stavku**
+
+- `ProductId` mora postojati u `order.Items`
+- količina ≥ 1
+- ako zadatak kaže da ne smiješ platiti više nego što je naručeno: uporedi s `OrderItem.Quantity` (i eventualno već plaćenim — na ispitu obično stači „ne veće od količine na narudžbi")
+
+Ako pravilo padne → `MarketBusinessRuleException("uplata.invalid-item", "poruka")` (409) ili `ValidationException` (400). Budi konzistentna.
+
+**3. Spoji linije (merge)**
+
+Grupiraj `request.Items` po `(ProductId, NacinPlacanja)` i saberi `Kolicina`.
+
+LINQ ideja: `GroupBy(x => new { x.ProductId, x.NacinPlacanja })` pa `Sum` količine.
+
+**4. Izračunaj iznos svake spojene linije**
+
+Nađi `OrderItem` za taj `ProductId`.
+
+```
+cijena = item.Product.Price   // ili item.UnitPrice
+iznos  = Round(kolicina * cijena)
+```
+
+`CreateOrderCommandHandler` ima `RoundMoney` na 2 decimale — možeš isti trik.
+
+**Ne koristi** `item.Total`.
+
+**5. `UkupanIznos` = zbroj `Iznos` svih linija**
+
+**6. Kreiraj `UplataEntity`**
+
+`BrojUplate.Trim()`, `OrderId`, `Napomena`, `UkupanIznos`.
+
+Linije: ili `ctx.UplataLinije.Add(...)` uz postavljen `Uplata` navigacijski property, ili napuni listu i veži na `uplata.Linije`.
+
+`CreatedAtUtc` postavlja audit u `SaveChanges`.
+
+**7. Ažuriraj narudžbu**
+
+```
+order.TotalAmountPaid += ukupanIznos
+order.BalanceDue = order.TotalAmount - order.TotalAmountPaid
+```
+
+- `BalanceDue > 0` → `PartiallyPaid`
+- `BalanceDue == 0` → `Paid`, po potrebi `PaidAtUtc = DateTime.UtcNow`
+- `BalanceDue < 0` → preplata; ako zadatak to zabranjuje, baci exception **prije** snimanja
+
+**8. `await ctx.SaveChangesAsync(ct)` jednom**
+
+Vraća `uplata.Id`.
+
+Jedna transakcija: ako nešto baci exception prije Save, ništa se ne snimi. Ako baciš **poslije** Save, kasno je. Zato sve provjere idu **prije**.
+
+**Šta NE kopiraš iz Products/Orders:**
+
+- `ICatalogCacheVersionService`
+- 5% popusta
+- `StockQuantity`
+
+#### Korak D4: POST u kontroler
+
+Otvori `UplateController.cs` (sada samo GET). Dodaj kao `ProductsController.Create`:
+
+```csharp
+[HttpPost]
+[Authorize(Policy = "Staff")]
+public async Task<ActionResult<int>> Create(CreateUplataCommand command, CancellationToken ct)
+{
+    int id = await sender.Send(command, ct);
+    return Ok(new { id }); // ili CreatedAtAction ako dodaš GetById — nije obavezan
+}
+```
+
+GetById **nije** u zadatku. `Ok(new { id })` je dovoljno. `CreatedAtAction` traži GetById — ne komplikuj.
+
+Lista GET već radi; ostavi je.
+
+#### Korak D5: Test u Swaggeru — OBAVEZNO prije frontenda
+
+Authorize (npr. `string` / `string`).
+
+Primjer tijela (prilagodi `orderId` i `productId` iz `GET /Orders/with-items`):
+
+```json
+{
+  "brojUplate": "UPL-TEST-01",
+  "orderId": 1,
+  "napomena": "test",
+  "items": [
+    { "productId": 1, "kolicina": 1, "nacinPlacanja": 1 },
+    { "productId": 1, "kolicina": 1, "nacinPlacanja": 1 }
+  ]
+}
+```
+
+Druga dva itema isti proizvod + isti način → u bazi **jedna** linija s količinom 2.
+
+Provjeri:
+
+- `GET /Uplate` — nova uplata, `ukupanIznos` ima smisla
+- `GET /Orders/{id}` — `totalAmountPaid`, `balanceDue`, `status`
+- SSMS: redovi u `UplataLinije`
+
+Prazan `items` → 400. Pogrešan proizvod → 400/409. Nepostojeći `orderId` → 404.
+
+---
+
+## 10. Frontend — korak po korak
+
+Rute i `AdminModule` već postoje. Ne dodaješ rutu.
+
+---
+
+### FAZA E — API sloj
+
+#### Korak E1: Models
+
+Otvori `uplate-api.models.ts`. Dodaj:
+
+```ts
+export interface CreateUplataCommandItem {
+  productId: number;
+  kolicina: number;
+  nacinPlacanja: NacinPlacanjaType;
+}
+
+export interface CreateUplataCommand {
+  brojUplate: string;
+  orderId: number;
+  napomena?: string | null;
+  items: CreateUplataCommandItem[];
+}
+```
+
+Za listu, bolje kao Products:
+
+```ts
+export class ListUplateRequest extends BasePagedQuery {}
+```
+
+`NacinPlacanjaType` već postoji (`Kes = 1`, `Kartica = 2`).
+
+#### Korak E2: Service — popravi `list` i dodaj `create`
+
+**Problem trenutnog `list`:** šalje `Paging.PageNumber`. Backend `PageRequest` ima **`Page`**, ne `PageNumber`. Zato paginacija ne radi kako treba.
+
+**Rješenje:** kao `products-api.service.ts`:
+
+```ts
+list(request?: ListUplateRequest): Observable<ListUplateResponse> {
+  const params = request ? buildHttpParams(request as any) : undefined;
+  return this.http.get<ListUplateResponse>(this.baseUrl, { params });
+}
+
+create(payload: CreateUplataCommand): Observable<{ id: number } | number> {
+  return this.http.post<{ id: number }>(this.baseUrl, payload);
+}
+```
+
+Bez `subscribe`, bez toast-a.
+
+`buildHttpParams` pretvara `paging.page` u `paging.page=1` — to backend veže.
+
+#### Korak E3: Imena proizvoda na narudžbi
+
+Otvori backend `ListOrdersWithItemsQueryDtoItemProduct`:
+
+- `ProductId`, `ProductName`, `ProductCategoryName`
+
+Otvori frontend `orders-api.models.ts` — tamo stoji `id`, `name`, `price` — **ne odgovara**.
+
+Otvori `uplata-add.component.html`:
+
+```html
+[value]="item.product.id"
+{{ item.product.name }}
+```
+
+To **neće** raditi s pravim API-jem.
+
+**Uradi jedno od ovoga (konzistentno):**
+
+- uskladi FE model s backendom (`productId`, `productName`) i HTML na `item.product.productId` / `item.product.productName`
+- ili u komponenti mapiraj odgovor
+
+Najmanje iznenađenja: **ispravi model + HTML**.
+
+Backend **ne šalje** `price` u tom DTO-u. Iznos računa Handler. Dropdownu treba samo id + naziv.
+
+---
+
+### FAZA F — Lista + paginacija
+
+Profesor **posebno** gleda paginaciju. Starter je namjerno slab.
+
+#### Korak F1: Šta otvoriti
+
+| Fajl | Zašto |
+|------|--------|
+| `uplate.component.ts` | `list(1, 100)` — zamijeni |
+| `uplate.component.html` | nema paginator |
+| `products.component.ts` | uzor `BaseListPagedComponent` |
+| `products.component.html` | `<app-fit-paginator-bar [vm]="this" />` |
+
+#### Korak F2: TS
+
+Naslijedi:
+
+```ts
+export class UplateComponent
+  extends BaseListPagedComponent<ListUplateQueryDto, ListUplateRequest>
+  implements OnInit
+```
+
+- `this.request = new ListUplateRequest();`
+- `this.request.paging.pageSize = 10;` — seed ima 3 uplate; nakon Create ćeš lakše vidjeti stranice ako smanjiš npr. na 2 za demo, ali 10 je OK
+- `ngOnInit`: `this.initList();`
+- `loadPagedData()`: `api.list(this.request)` → `handlePageResult(response)`
+- `onNovaUplata()` već navigira na `/admin/uplate/add` — ostavi
+
+Obriši ručni niz `uplate` ako pređeš na `items` iz bazne klase.
+
+HTML trenutno ima `[dataSource]="uplate"`. Promijeni u `items` **ili** ostavi alias. Bitno da tabela koristi ono što puni `handlePageResult`.
+
+#### Korak F3: HTML paginator
+
+Ispod tabele, u `table-card`:
+
+```html
+<app-fit-paginator-bar [vm]="this" />
+```
+
+**Ne dodaj** kolone edit/delete.
+
+Datum: starter ima `| date`. Možeš `| date:'dd.MM.yyyy'` da bude urednije. Iznos: `| number:'1.2-2'`.
+
+**Test:** Network tab — URL mora sadržavati `paging.page` i `paging.pageSize`, ne `Paging.PageNumber`. Promjena „Po stranici" ponovo zove API.
+
+---
+
+### FAZA G — Forma (master-detail)
+
+Starter je **napola urađen**. Ne briši cijeli fajl. Dopuni.
+
+#### Korak G1: Šta već ima TS
+
+- `FormGroup`: `brojUplate`, `orderId`, `napomena`, `items` (`FormArray`)
+- `addItem()` / `removeItem()`
+- `onOrderChange` puni `selectedOrderItems` iz `narudzbe`
+- `narudzbe = []` — **nikad se ne puni**
+- `onSubmit()` prazan
+- `ToasterService` je importan, ali **nije injektovan**
+- `NacinPlacanja` interfejs postoji, **nema niza opcija**
+- nisu injektovani `OrdersApiService` ni `UplateApiService`
+
+#### Korak G2: `ngOnInit` — učitaj narudžbe
+
+```ts
+private ordersApi = inject(OrdersApiService);
+private uplateApi = inject(UplateApiService);
+private toaster = inject(ToasterService);
+
+ngOnInit(): void {
+  this.ordersApi.listWithItems({ paging: largePaging }).subscribe({
+    next: (res) => this.narudzbe = res.items,
+    error: () => this.toaster.error('Greška pri učitavanju narudžbi')
+  });
+}
+```
+
+**Zašto `listWithItems` a ne `list`?** Dropdown proizvoda treba `order.items`. Običan `GET /Orders` nema stavke.
+
+Admin vidi sve narudžbe (handler filtrira na usera samo ako nisi admin).
+
+#### Korak G3: Validators
+
+U konstruktoru, umjesto praznih `['']`:
+
+- `brojUplate`: `Validators.required`, `Validators.maxLength(20)`
+- `orderId`: `Validators.required`
+- `napomena`: `Validators.maxLength(500)`
+- svaki item: `productId` required, `kolicina` required + `min(1)`, `nacinPlacanja` required
+
+Dugme Sačuvaj već ima `[disabled]="form.invalid || isSaving || isLoading"`. Bez validatora forma je „validna" i šalje prazninu.
+
+Početne dvije prazne stavke: zadatak traži barem jednu. Možeš ostaviti jednu ili dvije, ali validatori moraju spriječiti prazan submit. `removeItem` neka ne ostavi nula stavki, ili validator `Items.NotEmpty` na backendu to uhvati.
+
+#### Korak G4: Niz za način plaćanja
+
+```ts
+nacinPlacanjaOptions: NacinPlacanja[] = [
+  { id: NacinPlacanjaType.Kes, name: 'Keš' },
+  { id: NacinPlacanjaType.Kartica, name: 'Kartica' }
+];
+```
+
+#### Korak G5: HTML — `formControlName` (bez ovoga forma ne radi)
+
+| Polje | Šta dodati |
+|-------|------------|
+| Broj uplate `<input>` | `formControlName="brojUplate"` |
+| Narudžba `<mat-select>` | `formControlName="orderId"` (već ima `selectionChange`) |
+| Napomena `<textarea>` | `formControlName="napomena"` |
+| Proizvod `<mat-select>` | `formControlName="productId"` |
+| Količina `<input>` | `formControlName="kolicina"` |
+| Način plaćanja `<mat-select>` | `formControlName="nacinPlacanja"` + `mat-option` |
+
+Za način plaćanja:
+
+```html
+<mat-option *ngFor="let n of nacinPlacanjaOptions" [value]="n.id">
+  {{ n.name }}
+</mat-option>
+```
+
+`[value]` mora biti **broj** 1 ili 2, ne string `"Kes"`.
+
+Za proizvod, nakon usklađivanja modela:
+
+```html
+[value]="item.product.productId"
+{{ item.product.productName }}
+```
+
+`formArrayName="items"` i `[formGroupName]="i"` već postoje — ne diraj tu strukturu.
+
+#### Korak G6: `onOrderChange`
+
+Već postoji. Kad se promijeni narudžba:
+
+- resetuj `items` (npr. obriši pa `addItem()`), da ne ostane proizvod s prethodne narudžbe
+- `selectedOrderItems = order.items`
+
+Ako korisnik nije odabrao narudžbu, dropdown proizvoda je prazan — to je OK.
+
+#### Korak G7: `onSubmit`
+
+```
+1. form.markAllAsTouched()
+2. ako invalid → return
+3. isSaving = true
+4. command iz form.value (orderId i productId kao number, nacinPlacanja kao number)
+5. uplateApi.create(command).subscribe
+6. next: toaster.success + navigate /admin/uplate
+7. error: toaster.error + isSaving = false
+```
+
+Merge **prepusti backendu**. Ako spojiš i na FE, OK, ali profesor testira POST.
+
+`orderId` iz `mat-select` ponekad dođe kao string. Ako backend zajebe, uradi `Number(this.form.value.orderId)`.
+
+---
+
+## 11. Vizuelni tok rješenja
+
+### 11.1 Lista
+
+```
+Sidebar „Uplata (Modul 2)"
+        ↓
+UplateComponent → initList → loadPagedData
+        ↓
+GET /Uplate?paging.page=1&paging.pageSize=10
+        ↓
+ListUplateQueryHandler (već gotov)
+        ↓
+handlePageResult → mat-table + fit-paginator-bar
+```
+
+### 11.2 Otvaranje forme
+
+```
+Nova uplata → /admin/uplate/add
+        ↓
+ngOnInit → GET /Orders/with-items
+        ↓
+narudzbe[] pun → dropdown narudžbi
+```
+
+### 11.3 Popunjavanje
+
+```
+Broj uplate → formControlName
+        ↓
+Odabir narudžbe → onOrderChange → selectedOrderItems
+        ↓
+Dropdown proizvoda samo ta narudžba
+        ↓
+Stavka: proizvod, količina, Keš/Kartica
+        ↓
+Dodaj stavku → nova grupa u FormArray
+        ↓
+form.valid → Sačuvaj aktivan
+```
+
+### 11.4 Snimanje
+
+```
+onSubmit → POST /Uplate
+        ↓
+Validator (prazna lista, max dužine)
+        ↓
+Handler:
+    učitaj Order + Items + Product
+    validiraj proizvode
+    spoji (ProductId, NacinPlacanja)
+    iznos = količina × cijena BEZ popusta
+    snimi Uplata + Linije
+    ažuriraj TotalAmountPaid, BalanceDue, Status
+    SaveChangesAsync jednom
+        ↓
+toast + lista → nova uplata vidljiva
+```
+
+---
+
+## 12. Kako testirati
+
+### Swagger (prije Angulara)
+
+| Test | Očekivano |
+|------|-----------|
+| GET /Uplate | 3 seed uplate |
+| POST validan, 1 stavka | 200/201 + id; lista ima novi red; iznos = količina × Price |
+| POST dvije stavke isti proizvod + isti način | 1 linija u bazi, sabrana količina |
+| POST isti proizvod, Keš + Kartica | 2 linije |
+| POST prazan items | 400 |
+| POST proizvod koji nije na narudžbi | 400/409 |
+| POST pa GET Order | `totalAmountPaid` porastao; status PartiallyPaid ili Paid |
+| Djelomična uplata | `PartiallyPaid`, `balanceDue > 0` |
+| Uplata koja pokrije ostatak | `Paid`, `balanceDue = 0` |
+
+### Frontend
+
+- Lista: API, paginacija UI, **nema** olovke/kante
+- Nova uplata: dropdown narudžbi nije prazan
+- Odabir narudžbe mijenja proizvode
+- Keš i Kartica postoje
+- Sačuvaj disabled dok forma nije validna
+- Toast uspjeh/greška
+- Povratak na listu, vidi se nova uplata
+- Network: `paging.page`, ne `PageNumber`
+- Network POST body: `items[].productId` broj, `nacinPlacanja` 1 ili 2
+
+---
+
+## 13. Najčešće greške i debug
+
+| Greška | Simptom | Šta uraditi |
+|--------|---------|-------------|
+| Nema `UplataLinijaEntity` | Ne možeš snimiti stavke | Faza B |
+| Zaboravljena migracija | SQL greška / tabela ne postoji | `dotnet ef migrations add` |
+| `DbSet` samo u Context, ne u interfejsu | Handler ne kompajlira `ctx.UplataLinije` | dodaj u `IAppDbContext` |
+| Cijena s popustom (`Total`) | Pogrešan `UkupanIznos` | `Product.Price` / `UnitPrice` |
+| Ne ažuriraš Order | Status ostaje Draft/Confirmed | korak 7 u Handleru |
+| Logika samo na FE | Swagger POST ne mijenja narudžbu | sve u Handleru |
+| Nema `formControlName` | `form.value` prazan, Sačuvaj čudan | Faza G5 |
+| `narudzbe = []` | Prazan dropdown | `listWithItems` u `ngOnInit` |
+| `Paging.PageNumber` | Paginacija ne mijenja rezultat | `buildHttpParams` + `paging.page` |
+| Nema `mat-option` za način | Ne možeš odabrati Keš/Kartica | `nacinPlacanjaOptions` |
+| `product.id` umjesto `productId` | `productId: undefined` u POST | uskladi model s backendom |
+| Update/Delete kolone | Gubiš vrijeme | zadatak ih ne traži |
+| Radiš Fakture | Pogrešan modul | sidebar: **Uplata (Modul 2)** |
+| 5% popusta iz Create Order | Iznos premalen | ne kopiraj taj dio |
+| Dva `SaveChanges` | Pola stanja ako drugi padne | jedan Save na kraju |
+| `nacinPlacanja: "1"` string | Enum se ne veže | `[value]="n.id"` broj |
+
+### Debug redoslijed
+
+1. Swagger POST — radi li backend sam?
+2. Network payload — šta Angular šalje?
+3. `console.log(this.form.value, this.form.invalid)`
+4. `GET /Orders/{id}` poslije uplate
+5. Uporedi s `CreateOrderCommandHandler` (struktura, ne popust) i `products.component.ts` (paginacija)
+
+---
+
+## 14. Završna checklista prije predaje
+
+### Backend
+
+- [ ] `UplataLinijaEntity` + `Linije` na `UplataEntity`
+- [ ] EF config 1:N + `DbSet` u Context **i** `IAppDbContext`
+- [ ] Migracija dodana, API se diže
+- [ ] Create Command prima roditelja + `Items`
+- [ ] Validator: obavezna polja, barem jedna stavka
+- [ ] Handler: proizvod iz narudžbe, merge, cijena **bez** popusta, `UkupanIznos`
+- [ ] Order: `TotalAmountPaid`, `BalanceDue`, `PartiallyPaid` / `Paid`
+- [ ] Jedan `SaveChangesAsync`
+- [ ] POST u `UplateController`
+- [ ] Swagger scenariji gore prolaze
+- [ ] Nema Update/Delete uplate
+- [ ] Nisi dirala zalihe proizvoda ni Fakture
+
+### Frontend
+
+- [ ] `create()` + ispravan `list()` s `buildHttpParams`
+- [ ] Lista nasljeđuje `BaseListPagedComponent` + `app-fit-paginator-bar`
+- [ ] Tabela bez edit/delete
+- [ ] `listWithItems` puni dropdown
+- [ ] Svi `formControlName`
+- [ ] Keš/Kartica opcije
+- [ ] Proizvodi samo iz odabrane narudžbe; ispravna imena polja (`productId`)
+- [ ] Validators + disabled Sačuvaj
+- [ ] Submit + toast + povratak na listu
+
+---
+
+## 15. Kako razmišljati na ispitu
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. Pročitaj zadatak. Napiši na papir:                      │
+│     Entiteti: Uplata, UplataLinija, Order (update)          │
+│     Operacije: Lista + Create (NE edit/delete)              │
+│     Posebno: FormArray, merge, cijena bez popusta, status   │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  2. Otvori UplataEntity, OrderEntity, uplata-add,           │
+│     UplateController, products.component (paginacija).      │
+│     Šta postoji? Šta je prazno/pokvareno?                   │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  3. Nacrtaj: Order 1—N Uplata 1—N Linija → Product          │
+│            Order 1—N OrderItem → Product                    │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  4. Plan: entitet → migracija → Handler → Swagger           │
+│           → lista paginacija → forma binding → test         │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  5. Kod. Prvo ono bez čega ostalo ne radi.                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Mantra
+
+> Master-detail = jedan roditelj, više djece — u bazi, u Commandu i u FormArray.
+
+> Poslovna logika narudžbe ide u Handler, ne u Angular.
+
+> Cijena uplate je bez popusta. `OrderItem.Total` je zamka.
+
+> Paginacija i `formControlName` — u starteru su namjerno pokvareni.
+
+> Nema edit/delete. Nisu Fakture. Nisu Pošiljke.
+
+### Kad zapneš, otvori
+
+| Problem | Fajl |
+|---------|------|
+| Polja uplate | `UplataEntity.cs` |
+| Kako 1:N izgleda | `OrderItemEntity` + `OrderItemConfiguration` |
+| Složen Create | `CreateOrderCommandHandler.cs` (bez popusta!) |
+| Lista uplata | `ListUplateQueryHandler.cs` (već gotova) |
+| Narudžbe + proizvodi | `ListOrdersWithItemsQueryDto.cs` + `OrdersApiService.listWithItems` |
+| Paginacija UI | `products.component.ts/html` |
+| FormArray skelet | `uplata-add.component.ts` — nastavi, ne kreći od nule |
+| Query string | `build-http-params.ts` |
+
+---
+
+## 16. Rečnik pojmova
+
+Samo pojmovi koji se **stvarno** koriste u ovom modulu:
+
+| Pojam | Jednostavno |
+|-------|-------------|
+| **Master-detail** | Jedan glavni zapis + više stavki. Uplata + linije. |
+| **FormArray** | Lista `FormGroup`-ova koju korisnik može širiti (`addItem`). |
+| **1:N** | Jedna uplata ima više linija. FK `UplataId` na djetetu. |
+| **Linija uplate** | Jedan red: proizvod + količina + način plaćanja. |
+| **Merge** | Sabiranje količina kad su proizvod i način plaćanja isti. |
+| **CQRS Command** | `CreateUplataCommand` — jedini write u ovom modulu. |
+| **Handler** | Tu računaš iznos i mijenjaš narudžbu. |
+| **UkupanIznos** | Zbroj linija; **ne** unosi ga korisnik. |
+| **TotalAmountPaid** | Koliko je narudžba već plaćena. |
+| **BalanceDue** | Koliko još duguje (`TotalAmount − TotalAmountPaid`). |
+| **PartiallyPaid / Paid** | Statusi narudžbe poslije uplate. |
+| **Bez popusta** | `Price` / `UnitPrice`, ne `Total`. |
+| **Include / ThenInclude** | Učitaj Order + Items + Product u jednom upitu. |
+| **GroupBy** | LINQ za merge. |
+| **PageRequest.Page** | Broj stranice. Starter šalje krivi `PageNumber`. |
+| **listWithItems** | Narudžbe sa stavkama, za dropdown proizvoda. |
+| **Cascade** | Brisanje uplate briše linije (EF veza). |
+| **Restrict** | Ne briši proizvod dok postoji linija. |
+| **Transakcija** | Jedan `SaveChangesAsync` = sve ili ništa. |
+
+---
+
+## Dodatni resursi u ovom projektu
 
 | Fajl | Za šta |
 |------|--------|
-| `RS1_Modul1_Vodic.md` | CQRS, API servisi, Reactive Forms — osnove |
-| `api-services/readme.md` | Pravila za API servise |
-| `products.component.ts` | Uzor za paginaciju |
-| `uplata-add.component.ts` | Već započet FormArray — nastavi odatle |
-| `ListOrdersWithItemsQueryHandler.cs` | Kako učitati narudžbe sa stavkama |
-| `ListUplateQueryHandler.cs` | Lista uplata — već gotova |
-| `CreateOrderCommandHandler.cs` | Uzor za složeniji Handler s više entiteta |
+| `RS1_Modul1_Vodic.md` | CQRS, API servis, paginacija, toast — osnove |
+| `CreateOrderCommandHandler.cs` | Handler s više entiteta (ignoriši popust) |
+| `OrderItemConfiguration.cs` | Uzor 1:N |
+| `ListUplateQueryHandler.cs` | Lista — već gotova |
+| `ListOrdersWithItemsQueryHandler.cs` | Šta FE dobije za dropdown |
+| `products.component.ts` | Uzor paginacije |
+| `uplata-add.component.ts` | FormArray — nastavi odatle |
+| `api-services/readme.md` | Pravila tankog API servisa |
 
 ---
 
-*Dokument kreiran za pripremu RS1 ispita — Modul 2 (Upravljanje uplatama).*
+*Vodič je namijenjen pripremi RS1 ispita — Modul 2 (februar, Uplate / master-detail). Modul 1 su Pošiljke. Januarski ispit (Fakture / Dostavljač) nije ovaj zadatak.*
