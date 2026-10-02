@@ -830,9 +830,38 @@ Povratni tip `int` = novi `Id`, kao kod Products.
 | `ShippingCost` | `GreaterThan(0)` |
 | `OrderId` | `GreaterThan(0)` |
 
-Koristi `Constraints` iz entiteta — jedan izvor istine, ne hardkodiraj `20` na tri mjesta.
+Koristi `Constraints` iz entiteta — jedan izvor istine, ne hardkodiraj `20` na tri mjesta. `FluentValidation` je već u global usings, ali `OrderShipmentEntity` nije, pa treba `using Market.Domain.Entities.Sales`.
 
-Validator se **sam** pokreće kroz `ValidationBehavior` prije Handlera. Ako padne, API vrati 400. **Ne zoveš validator ručno.**
+Validator se **sam** pokreće kroz `ValidationBehavior` prije Handlera. Ako padne, API vrati 400. **Ne zoveš validator ručno.** MediatR ga nađe jer je u istom assemblyju i nasljeđuje `AbstractValidator<T>`.
+
+Fajl: `Market.Application/Modules/Sales/OrderShipments/Commands/Create/CreateOrderShipmentCommandValidator.cs`
+
+```csharp
+using Market.Domain.Entities.Sales;
+
+namespace Market.Application.Modules.Sales.OrderShipments.Commands.Create;
+
+public sealed class CreateOrderShipmentCommandValidator : AbstractValidator<CreateOrderShipmentCommand>
+{
+    public CreateOrderShipmentCommandValidator()
+    {
+        RuleFor(x => x.ShipmentNumber)
+            .NotEmpty().WithMessage("Shipment number is required.")
+            .MaximumLength(OrderShipmentEntity.Constraints.ShipmentNumberMaxLength)
+            .WithMessage($"Shipment number cannot exceed {OrderShipmentEntity.Constraints.ShipmentNumberMaxLength} characters.");
+
+        RuleFor(x => x.ShippingCost)
+            .GreaterThan(0).WithMessage("Shipping cost must be greater than 0.");
+
+        RuleFor(x => x.OrderId)
+            .GreaterThan(0).WithMessage("OrderId must be greater than 0.");
+    }
+}
+```
+
+**Zašto `Constraints.ShipmentNumberMaxLength`:** u entitetu je `20`. Ako profesor promijeni dužinu, mijenjaš je na jednom mjestu. `MaximumLength(20)` bi se razišao od baze.
+
+**Šta validator ne radi:** ne provjerava da li `OrderId` postoji u bazi. To je posao Handlera (`MarketNotFoundException` → 404). Validator samo gleda oblik zahtjeva (prazno, predugo, `0`) i vraća 400.
 
 #### Korak C3: Handler — poslovna logika
 
