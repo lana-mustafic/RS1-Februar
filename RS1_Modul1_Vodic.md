@@ -978,7 +978,53 @@ public sealed class UpdateOrderShipmentCommand : IRequest<Unit>
 
 #### Korak D2: Validator
 
-Ista pravila kao Create, plus `Id > 0`. Status mora biti validan enum (`IsInEnum()`).
+- **Otvori uzor:** `UpdateProductCommandValidator.cs` i `ChangeOrderStatusCommandValidator.cs` (`IsInEnum`)
+- Ista pravila kao Create, plus `Id > 0`. Status mora biti validan enum (`IsInEnum()`).
+
+| Polje | Pravilo |
+|-------|---------|
+| `Id` | `GreaterThan(0)` |
+| `ShipmentNumber` | `NotEmpty`, `MaximumLength(OrderShipmentEntity.Constraints.ShipmentNumberMaxLength)` |
+| `ShippingCost` | `GreaterThan(0)` |
+| `OrderId` | `GreaterThan(0)` |
+| `Status` | `IsInEnum()` |
+
+`Id` dolazi iz rute (`command.Id = id` u kontroleru), ali validator ga i dalje provjerava. `0` ili negativan id ne smije doći do handlera.
+
+Fajl: `Market.Application/Modules/Sales/OrderShipments/Commands/Update/UpdateOrderShipmentCommandValidator.cs`
+
+```csharp
+using Market.Domain.Entities.Sales;
+
+namespace Market.Application.Modules.Sales.OrderShipments.Commands.Update;
+
+public sealed class UpdateOrderShipmentCommandValidator : AbstractValidator<UpdateOrderShipmentCommand>
+{
+    public UpdateOrderShipmentCommandValidator()
+    {
+        RuleFor(x => x.Id)
+            .GreaterThan(0).WithMessage("Id must be greater than 0.");
+
+        RuleFor(x => x.ShipmentNumber)
+            .NotEmpty().WithMessage("Shipment number is required.")
+            .MaximumLength(OrderShipmentEntity.Constraints.ShipmentNumberMaxLength)
+            .WithMessage($"Shipment number cannot exceed {OrderShipmentEntity.Constraints.ShipmentNumberMaxLength} characters.");
+
+        RuleFor(x => x.ShippingCost)
+            .GreaterThan(0).WithMessage("Shipping cost must be greater than 0.");
+
+        RuleFor(x => x.OrderId)
+            .GreaterThan(0).WithMessage("OrderId must be greater than 0.");
+
+        RuleFor(x => x.Status)
+            .IsInEnum().WithMessage("Invalid shipment status.");
+    }
+}
+```
+
+**Zašto `IsInEnum()`:** `OrderShipmentStatusType` ima vrijednosti 1–5. JSON može poslati `0` ili `99` i to se i dalje veže na enum. `IsInEnum()` to odbija sa 400. Isto kao `NewStatus` u `ChangeOrderStatusCommandValidator`.
+
+**Šta validator ne radi:** ne postavlja `DeliveredAtUtc` i ne provjerava da li pošiljka ili narudžba postoje. To radi handler.
 
 #### Korak D3: Handler
 
