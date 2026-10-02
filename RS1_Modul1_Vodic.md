@@ -1783,7 +1783,7 @@ Servis stavi u `providers` na add i na edit komponenti, kao `ProductFormService`
 | `shippingCost` | `required`, `min(0.01)` |
 | `orderId` | `required` |
 
-**Nema** `status`, **nema** datuma — backend ih postavlja. U HTML stavi info tekst: „Status i datum slanja postavljaju se automatski."
+**Nema** `status`, **nema** datuma — backend ih postavlja. U HTML stavi info tekst: „Status i datum slanja postavljaju se automatski." To nije form control. Tekst ide u korak H3.
 
 5. `save()`:
    - ako `form.invalid` ili `isLoading` → return
@@ -1793,6 +1793,112 @@ Servis stavi u `providers` na add i na edit komponenti, kao `ProductFormService`
    - greška: `toaster.error(...)`
 
 6. `onCancel()` → nazad na listu
+
+Fajl: `src/app/modules/admin/posiljke/posiljka-add/posiljka-add.component.ts`
+
+Importi su `../../../../` (četiri nivoa do `app`). `products-add` je jedan folder dublje, zato tamo piše pet.
+
+`initForm(false)` na bazi samo postavi `isEditMode`. Formu praviš u `override`, pa zoveš `super.initForm(isEdit)`. Za `false` baza **ne** zove `loadData()`.
+
+```ts
+import { Component, inject, OnInit } from '@angular/core';
+import { FormBuilder, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
+import {
+  CreateOrderShipmentCommand,
+  GetOrderShipmentByIdQueryDto
+} from '../../../../api-services/order-shipments/order-shipments-api.models';
+import { OrderShipmentsApiService } from '../../../../api-services/order-shipments/order-shipments-api.service';
+import { ListOrdersQueryDto } from '../../../../api-services/orders/orders-api.models';
+import { OrdersApiService } from '../../../../api-services/orders/orders-api.service';
+import { BaseFormComponent } from '../../../../core/components/base-classes/base-form-component';
+import { largePaging } from '../../../../core/models/paging/paging-utils';
+import { ToasterService } from '../../../../core/services/toaster.service';
+
+@Component({
+  selector: 'app-posiljka-add',
+  standalone: false,
+  templateUrl: './posiljka-add.component.html',
+  styleUrl: './posiljka-add.component.scss'
+})
+export class PosiljkaAddComponent
+  extends BaseFormComponent<GetOrderShipmentByIdQueryDto>
+  implements OnInit {
+
+  private api = inject(OrderShipmentsApiService);
+  private ordersApi = inject(OrdersApiService);
+  private fb = inject(FormBuilder);
+  private router = inject(Router);
+  private toaster = inject(ToasterService);
+
+  orders: ListOrdersQueryDto[] = [];
+
+  ngOnInit(): void {
+    this.initForm(false);
+    this.loadOrders();
+  }
+
+  protected loadData(): void {
+  }
+
+  protected override initForm(isEdit: boolean): void {
+    super.initForm(isEdit);
+
+    this.form = this.fb.group({
+      shipmentNumber: ['', [Validators.required, Validators.maxLength(20)]],
+      shippingCost: [null, [Validators.required, Validators.min(0.01)]],
+      orderId: [null, [Validators.required]]
+    });
+  }
+
+  protected save(): void {
+    if (this.form.invalid || this.isLoading) {
+      return;
+    }
+
+    this.startLoading();
+
+    const command: CreateOrderShipmentCommand = {
+      shipmentNumber: this.form.value.shipmentNumber,
+      shippingCost: Number(this.form.value.shippingCost),
+      orderId: Number(this.form.value.orderId)
+    };
+
+    this.api.create(command).subscribe({
+      next: () => {
+        this.stopLoading();
+        this.toaster.success('Pošiljka je sačuvana');
+        this.router.navigate(['/admin/posiljke']);
+      },
+      error: (err) => {
+        this.stopLoading();
+        this.toaster.error('Greška pri snimanju pošiljke');
+        console.error('Create shipment error:', err);
+      }
+    });
+  }
+
+  onCancel(): void {
+    this.router.navigate(['/admin/posiljke']);
+  }
+
+  private loadOrders(): void {
+    this.ordersApi.list({ paging: largePaging }).subscribe({
+      next: (res) => this.orders = res.items,
+      error: (err) => {
+        this.toaster.error('Greška pri učitavanju narudžbi');
+        console.error('Load orders error:', err);
+      }
+    });
+  }
+}
+```
+
+**Zašto `Number(...)`:** `input type="number"` u reactive formi često drži string. Backend `decimal` i `int` očekuju broj u JSON-u. `Number` to sredi prije `POST`.
+
+**Zašto nema statusa u commandu:** `CreateOrderShipmentCommand` ima samo broj, cijenu i `orderId`. Handler sam stavlja `Kreirana`, `ShippedAtUtc = UtcNow` i `DeliveredAtUtc = null`.
+
+**Dugme Sačuvaj** u HTML-u zove `onSubmit()`, ne `save()`. `onSubmit` u bazi radi `markAllAsTouched()` i odustane ako je forma nevalidna, pa tek onda zove `save()`.
 
 #### Korak H3: HTML obrazac
 
