@@ -1297,6 +1297,79 @@ Za `list` koristi `buildHttpParams(request)` — on pretvara `paging.page` u que
 
 **Provjera:** Angular se kompajlira. Još ne vidiš podatke na ekranu.
 
+Fajl: `src/app/api-services/order-shipments/order-shipments-api.service.ts`
+
+Modeli iz koraka F1 idu u `order-shipments-api.models.ts` u istom folderu.
+
+```ts
+import { inject, Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import {
+  ListOrderShipmentsRequest,
+  ListOrderShipmentsResponse,
+  GetOrderShipmentByIdQueryDto,
+  CreateOrderShipmentCommand,
+  UpdateOrderShipmentCommand
+} from './order-shipments-api.models';
+import { buildHttpParams } from '../../core/models/build-http-params';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class OrderShipmentsApiService {
+  private readonly baseUrl = `${environment.apiUrl}/OrderShipments`;
+  private http = inject(HttpClient);
+
+  /**
+   * GET /OrderShipments
+   * Lista pošiljki. orderId se šalje samo kad nije null.
+   */
+  list(request?: ListOrderShipmentsRequest): Observable<ListOrderShipmentsResponse> {
+    const params = request ? buildHttpParams(request as any) : undefined;
+
+    return this.http.get<ListOrderShipmentsResponse>(this.baseUrl, {
+      params,
+    });
+  }
+
+  /**
+   * GET /OrderShipments/{id}
+   */
+  getById(id: number): Observable<GetOrderShipmentByIdQueryDto> {
+    return this.http.get<GetOrderShipmentByIdQueryDto>(`${this.baseUrl}/${id}`);
+  }
+
+  /**
+   * POST /OrderShipments
+   */
+  create(payload: CreateOrderShipmentCommand): Observable<number> {
+    return this.http.post<number>(this.baseUrl, payload);
+  }
+
+  /**
+   * PUT /OrderShipments/{id}
+   */
+  update(id: number, payload: UpdateOrderShipmentCommand): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/${id}`, payload);
+  }
+
+  /**
+   * DELETE /OrderShipments/{id}
+   */
+  delete(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
+}
+```
+
+**Zašto `buildHttpParams`:** `{ orderId: 3, paging: { page: 1, pageSize: 10 } }` postaje `?orderId=3&paging.page=1&paging.pageSize=10`. To se poklapa sa `[FromQuery] ListOrderShipmentsQuery` na backendu. `null` i `undefined` se preskaču, pa „Sve narudžbe" ne šalje `orderId`.
+
+**Šta ne smije u servis:** `subscribe`, toast, filter po statusu, mapiranje datuma. Servis samo šalje HTTP i vraća `Observable`. Komponenta se pretplaćuje.
+
+**`create` vraća `Observable<number>`** kao Products. Komponenta taj broj ne mora čitati: nakon uspjeha ide toast i povratak na listu. Tijelo odgovora je zapravo `{ id }`, jer kontroler radi `CreatedAtAction`.
+
 ---
 
 ### FAZA G — Lista (`PosiljkeComponent`)
