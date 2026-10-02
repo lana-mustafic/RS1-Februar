@@ -1047,6 +1047,60 @@ Ako je već bilo `Dostavljena` i datum postoji, **ne prepisuj** datum. Ako koris
 
 **Šta NE kopiraš:** unique name, cache, disable kategorije.
 
+`ShippedAtUtc` se ne dira. Postavljen je pri kreiranju i nije na edit formi.
+
+Fajl: `Market.Application/Modules/Sales/OrderShipments/Commands/Update/UpdateOrderShipmentCommandHandler.cs`
+
+```csharp
+using Market.Domain.Entities.Sales;
+
+namespace Market.Application.Modules.Sales.OrderShipments.Commands.Update;
+
+public sealed class UpdateOrderShipmentCommandHandler(IAppDbContext ctx)
+    : IRequestHandler<UpdateOrderShipmentCommand, Unit>
+{
+    public async Task<Unit> Handle(UpdateOrderShipmentCommand request, CancellationToken ct)
+    {
+        var entity = await ctx.OrderShipments
+            .Where(x => x.Id == request.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (entity is null)
+        {
+            throw new MarketNotFoundException($"Order shipment with Id {request.Id} not found.");
+        }
+
+        var order = await ctx.Orders
+            .FirstOrDefaultAsync(x => x.Id == request.OrderId, ct);
+
+        if (order is null)
+        {
+            throw new MarketNotFoundException($"Order with Id {request.OrderId} not found.");
+        }
+
+        entity.ShipmentNumber = request.ShipmentNumber.Trim();
+        entity.ShippingCost = request.ShippingCost;
+        entity.OrderId = request.OrderId;
+        entity.Status = request.Status;
+
+        if (request.Status == OrderShipmentStatusType.Dostavljena && entity.DeliveredAtUtc is null)
+        {
+            entity.DeliveredAtUtc = DateTime.UtcNow;
+        }
+
+        await ctx.SaveChangesAsync(ct);
+
+        return Unit.Value;
+    }
+}
+```
+
+**Zašto nema `AsNoTracking`:** praćeni entitet EF upoređuje sa bazom. `SaveChangesAsync` vidi izmjenu i radi `UPDATE`. Sa `AsNoTracking` izmjene se ne snime.
+
+**Zašto `entity.DeliveredAtUtc is null`:** prvi put kad status postane `Dostavljena`, upiše se trenutni UTC datum. Drugi save, dok je datum već tu, uslov padne i stari datum ostaje. Povratak na `UDostavi` ili `Otkazana` ovaj `if` ne dira, pa se datum ne briše.
+
+**Šta ne kopiraš iz uzora:** `AnyAsync` za isto ime, `ICatalogCacheVersionService`, `BumpVersionAsync` i provjeru `IsEnabled` na kategoriji. Pošiljka nema ta pravila.
+
 #### Korak D4: Controller PUT
 
 ```csharp
