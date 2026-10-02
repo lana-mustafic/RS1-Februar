@@ -1562,13 +1562,28 @@ U `posiljke.component.html`, unutar `.actions-container`, **prije** dugmeta „N
 
 #### Korak G4: Paginacija u HTML-u
 
-Ispod `</table>`, unutar istog `mat-elevation` diva, dodaj:
+Ispod `</table>`, unutar istog `mat-elevation` diva, dodaj paginator. Komponenta je već u `SharedModule` (`selector: app-fit-paginator-bar`). Ne registruješ je i ne pišeš vlastiti paginator.
+
+`[vm]="this"` radi jer `PosiljkeComponent` nasljeđuje `BaseListPagedComponent`. Bar čita `request.paging`, `totalItems`, `totalPages` i `isLoading`, a klikovi zovu `goToPage`, `nextPage`, `prevPage` i `changePageSize`. Te metode već postoje u bazi i same zovu `loadPagedData()`.
+
+U `posiljke.component.html` kraj tabele treba izgledati ovako:
 
 ```html
-<app-fit-paginator-bar [vm]="this" />
+      <tr class="mat-row" *matNoDataRow>
+        <td class="mat-cell" colspan="7">
+          Nema pošiljki.
+        </td>
+      </tr>
+    </table>
+
+    <app-fit-paginator-bar [vm]="this" />
+  </div>
+</div>
 ```
 
-Komponenta već zna `goToPage`, `nextPage`, `prevPage`, `changePageSize` jer nasljeđuješ `BaseListPagedComponent`. **Ne piši vlastiti paginator.**
+Paginator mora ostati **unutar** `<div class="mat-elevation-z8">`, odmah poslije `</table>`, a **prije** zatvaranja tog diva. Ako ga staviš ispod cijelog `mat-elevation` diva, i dalje radi, ali ne sjedi u kartici kao kod Products.
+
+Bar se ne vidi dok je `totalItems` 0. Sa `pageSize = 10` iz koraka G2 i 12 seed pošiljki vidiš „Stranica 1 od 2" i ukupno 12 zapisa. Klik na sljedeću stranu mijenja `paging.page` i ponovo zove listu.
 
 #### Korak G5: Akcije
 
