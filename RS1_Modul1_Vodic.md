@@ -1592,9 +1592,24 @@ HTML trenutno ima dugmad **bez** `(click)`. Dodaj:
 - olovka: `(click)="onEdit(item)"`
 - kanta: `(click)="onDelete(item)"`
 
-TS:
+Rute već postoje u `admin-routing-module.ts`, ispod `path: 'admin'`:
+
+| Akcija | `navigate` | Ruta |
+|--------|------------|------|
+| Nova pošiljka | `['/admin/posiljke/add']` | `posiljke/add` |
+| Uredi | `['/admin/posiljke', item.id, 'edit']` | `posiljke/:id/edit` |
+
+`onCreate` je prazan u starteru — samo dopuni navigaciju. Dugme „Nova pošiljka" već ima `(click)="onCreate()"`. Tijelo `onDelete` dolazi u fazi J; ovdje metoda mora postojati, inače se template ne kompajlira.
+
+U `posiljke.component.ts` dodaj import i injektuj router. `ListOrderShipmentsQueryDto` je već uvezen u koraku G2.
 
 ```ts
+import { Router } from '@angular/router';
+```
+
+```ts
+private router = inject(Router);
+
 onCreate(): void {
   this.router.navigate(['/admin/posiljke/add']);
 }
@@ -1602,9 +1617,28 @@ onCreate(): void {
 onEdit(item: ListOrderShipmentsQueryDto): void {
   this.router.navigate(['/admin/posiljke', item.id, 'edit']);
 }
+
+onDelete(item: ListOrderShipmentsQueryDto): void {
+}
 ```
 
-Rute već postoje u `admin-routing-module.ts`. `onCreate` je prazan u starteru — samo dopuni navigaciju.
+Kolona akcija u `posiljke.component.html`:
+
+```html
+<ng-container matColumnDef="actions">
+  <th mat-header-cell *matHeaderCellDef>Akcije</th>
+  <td mat-cell *matCellDef="let item">
+    <button mat-icon-button color="primary" matTooltip="Uredi" (click)="onEdit(item)">
+      <mat-icon>edit</mat-icon>
+    </button>
+    <button mat-icon-button color="warn" matTooltip="Obriši" (click)="onDelete(item)">
+      <mat-icon>delete</mat-icon>
+    </button>
+  </td>
+</ng-container>
+```
+
+**Zašto tri segmenta u `onEdit`:** `['/admin/posiljke', item.id, 'edit']` za id `5` postane `/admin/posiljke/5/edit`. To odgovara `path: 'posiljke/:id/edit'`. Ne slaži URL ručno kao string.
 
 #### Korak G6: Formatiranje u templateu
 
