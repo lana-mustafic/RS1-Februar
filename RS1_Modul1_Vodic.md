@@ -1509,9 +1509,56 @@ onOrderFilterChange(): void {
 }
 ```
 
-`[(ngModel)]="request.orderId"` je OK za filter (nije Reactive Form; forma je add/edit).
+`[(ngModel)]="request.orderId"` je OK za filter (nije Reactive Form; forma je add/edit). `FormsModule` je već u `SharedModule`, ne dodaješ ga.
 
 **Zašto page = 1?** Ako si na stranici 3, pa filtriraš na 2 rezultata, stranica 3 više ne postoji — vidiš praznu tabelu i misliš da filter ne radi.
+
+U `posiljke.component.ts` dodaj import i polja na klasu iz koraka G2. `ngOnInit` i dalje prvo zove `initList()`.
+
+```ts
+import { ListOrdersQueryDto } from '../../../api-services/orders/orders-api.models';
+import { OrdersApiService } from '../../../api-services/orders/orders-api.service';
+import { largePaging } from '../../../core/models/paging/paging-utils';
+```
+
+```ts
+private ordersApi = inject(OrdersApiService);
+
+orders: ListOrdersQueryDto[] = [];
+
+ngOnInit(): void {
+  this.initList();
+
+  this.ordersApi.list({ paging: largePaging }).subscribe({
+    next: (res) => this.orders = res.items
+  });
+}
+
+onOrderFilterChange(): void {
+  this.request.paging.page = 1;
+  this.loadPagedData();
+}
+```
+
+U `posiljke.component.html`, unutar `.actions-container`, **prije** dugmeta „Nova pošiljka":
+
+```html
+<mat-form-field class="search-field" appearance="fill">
+  <mat-label>Narudžba</mat-label>
+  <mat-select
+    [(ngModel)]="request.orderId"
+    (ngModelChange)="onOrderFilterChange()">
+    <mat-option [value]="null">Sve narudžbe</mat-option>
+    <mat-option *ngFor="let o of orders" [value]="o.id">
+      {{ o.referenceNumber }}
+    </mat-option>
+  </mat-select>
+</mat-form-field>
+```
+
+**Zašto `(ngModelChange)`, a ne samo klik:** handler čita `request.orderId`. `ngModelChange` se okine tek kad je nova vrijednost već upisana, pa `list` pošalje taj `orderId`. „Sve narudžbe" stavlja `null`, a `buildHttpParams` preskače `null`, pa backend vrati sve pošiljke.
+
+**Zašto poseban poziv narudžbi:** dropdown treba `referenceNumber`, a lista pošiljki to ima samo za redove na trenutnoj strani. `OrdersApiService.list` puni sve narudžbe za filter. `largePaging` je stranica 1 i 100 redova.
 
 #### Korak G4: Paginacija u HTML-u
 
