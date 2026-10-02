@@ -1121,7 +1121,20 @@ public async Task Update(int id, UpdateOrderShipmentCommand command, Cancellatio
 
 #### Korak E1: Command
 
-Kao `DeleteProductCommand`: samo `Id`, `IRequest<Unit>`.
+Kao `DeleteProductCommand`: samo `Id`, `IRequest<Unit>`. Nema body-ja. Kontroler u koraku E3 pravi command iz id-a u ruti: `new DeleteOrderShipmentCommand { Id = id }`.
+
+`IRequest<Unit>` znači da handler ne vraća podatak. DELETE odgovor je 204, isto kao kod proizvoda.
+
+Fajl: `Market.Application/Modules/Sales/OrderShipments/Commands/Delete/DeleteOrderShipmentCommand.cs`
+
+```csharp
+namespace Market.Application.Modules.Sales.OrderShipments.Commands.Delete;
+
+public sealed class DeleteOrderShipmentCommand : IRequest<Unit>
+{
+    public required int Id { get; set; }
+}
+```
 
 #### Korak E2: Handler
 
