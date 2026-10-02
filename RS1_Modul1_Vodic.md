@@ -1195,15 +1195,81 @@ public async Task Delete(int id, CancellationToken ct)
 
 Kompletan kontroler treba imati 5 akcija, po uzoru na Products:
 
-| HTTP | Ruta | Akcija |
-|------|------|--------|
-| GET | `/OrderShipments` | List |
-| GET | `/OrderShipments/{id}` | GetById |
-| POST | `/OrderShipments` | Create |
-| PUT | `/OrderShipments/{id}` | Update |
-| DELETE | `/OrderShipments/{id}` | Delete |
+| HTTP | Ruta | Akcija | Odgovor |
+|------|------|--------|---------|
+| GET | `/OrderShipments` | List | 200, `PageResult` |
+| GET | `/OrderShipments/{id}` | GetById | 200 ili 404 |
+| POST | `/OrderShipments` | Create | 201, tijelo `{ id }` |
+| PUT | `/OrderShipments/{id}` | Update | 204 |
+| DELETE | `/OrderShipments/{id}` | Delete | 204 |
 
 **Ne nastavljaj frontend dok ovih pet ne radi u Swaggeru.**
+
+Korak A4 ima samo `List`. Kad su handleri gotovi, cijeli fajl `Market.API/Controllers/OrderShipmentsController.cs` izgleda ovako. Ime klase daje rutu `/OrderShipments`. Sve akcije su `Staff`. U Swaggeru prvo Authorize, login `string` / `string`.
+
+```csharp
+using Market.Application.Modules.Sales.OrderShipments.Commands.Create;
+using Market.Application.Modules.Sales.OrderShipments.Commands.Delete;
+using Market.Application.Modules.Sales.OrderShipments.Commands.Update;
+using Market.Application.Modules.Sales.OrderShipments.Queries.GetById;
+using Market.Application.Modules.Sales.OrderShipments.Queries.List;
+
+namespace Market.API.Controllers;
+
+[ApiController]
+[Route("[controller]")]
+public class OrderShipmentsController(ISender sender) : ControllerBase
+{
+    [HttpGet]
+    [Authorize(Policy = "Staff")]
+    public async Task<PageResult<ListOrderShipmentsQueryDto>> List(
+        [FromQuery] ListOrderShipmentsQuery query,
+        CancellationToken ct)
+    {
+        return await sender.Send(query, ct);
+    }
+
+    [HttpGet("{id:int}")]
+    [Authorize(Policy = "Staff")]
+    public async Task<GetOrderShipmentByIdQueryDto> GetById(int id, CancellationToken ct)
+    {
+        return await sender.Send(new GetOrderShipmentByIdQuery { Id = id }, ct);
+    }
+
+    [HttpPost]
+    [Authorize(Policy = "Staff")]
+    public async Task<ActionResult> Create(CreateOrderShipmentCommand command, CancellationToken ct)
+    {
+        int id = await sender.Send(command, ct);
+        return CreatedAtAction(nameof(GetById), new { id }, new { id });
+    }
+
+    [HttpPut("{id:int}")]
+    [Authorize(Policy = "Staff")]
+    public async Task Update(int id, UpdateOrderShipmentCommand command, CancellationToken ct)
+    {
+        command.Id = id;
+        await sender.Send(command, ct);
+    }
+
+    [HttpDelete("{id:int}")]
+    [Authorize(Policy = "Staff")]
+    public async Task Delete(int id, CancellationToken ct)
+    {
+        await sender.Send(new DeleteOrderShipmentCommand { Id = id }, ct);
+    }
+}
+```
+
+**Šta provjeriš u Swaggeru, redom:**
+
+1. `GET /OrderShipments` → `items` (seed ima 12), `totalItems`, `totalPages`.
+2. `GET /OrderShipments/1` → jedan objekat. `GET /OrderShipments/99999` → 404.
+3. `POST` sa `shipmentNumber`, `shippingCost`, `orderId` → 201 i `{ id }`. Novi GET: status `1`, `deliveredAtUtc` prazan.
+4. `PUT /OrderShipments/{id}` sa istim poljima plus `status` → 204. Id u body-ju se ignoriše jer kontroler upiše id iz rute.
+5. `DELETE /OrderShipments/{id}` → 204. Lista ga više nema. Isti DELETE opet → 404.
+
+`Update` i `Delete` nemaju `return`. To je 204, kao kod Products. `Create` mora `CreatedAtAction`, da Angular dobije `{ id }` i lokaciju novog resursa.
 
 ---
 
