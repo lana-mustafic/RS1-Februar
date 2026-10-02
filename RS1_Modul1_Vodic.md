@@ -2176,7 +2176,21 @@ Na uspjehu nema `stopLoading()` prije reloada. `loadPagedData` sam pali i gasi l
 
 Ne zovi API. Modal se zatvara sam.
 
-**Ne briši bez modala.** Profesor to eksplicitno traži.
+**Ne briši bez modala.** Profesor to eksplicitno traži. Kanta samo otvara dijalog. `api.delete` smije stajati u `performDelete`, a `performDelete` smije stati samo unutar `if`.
+
+Otkaži zatvori dijalog sa `result.button === DialogButton.CANCEL`. Klik pored modala zatvori ga bez rezultata, pa je `result` prazan. Oba slučaja padnu na ovom uslovu i metoda se tu završi:
+
+```ts
+onDelete(item: ListOrderShipmentsQueryDto): void {
+  this.dialogHelper.confirmDelete(item.shipmentNumber).subscribe(result => {
+    if (result && result.button === DialogButton.DELETE) {
+      this.performDelete(item);
+    }
+  });
+}
+```
+
+Nema `else`. `api.delete` ostaje u `performDelete`. Lista se ne osvježava i red ostaje. U Network tabu nema `DELETE /OrderShipments/{id}`.
 
 ---
 
