@@ -732,10 +732,53 @@ public sealed class GetOrderShipmentByIdQuery : IRequest<GetOrderShipmentByIdQue
 #### Korak B3: Handler
 
 - **Otvori uzor:** `GetProductByIdQueryHandler.cs`
-- `Where(x => x.Id == request.Id)` + `Select` + `FirstOrDefaultAsync`
+- **Šta kopiraš:** `Where(x => x.Id == request.Id)` + `Select` + `FirstOrDefaultAsync`
 - Ako je `null` → `throw new MarketNotFoundException(...)` — middleware vraća 404
 
-**Ne koristi** `Find` pa zatim ručno mapiranje ako možeš `Select` — konzistentnije s projektom.
+**Ne koristi** `Find` pa zatim ručno mapiranje. `Select` je konzistentniji s projektom: jedan upit, DTO se puni u bazi, uključujući `OrderReferenceNumber` preko `x.Order!.ReferenceNumber`. `Include` nije potreban.
+
+Fajl: `Market.Application/Modules/Sales/OrderShipments/Queries/GetById/GetOrderShipmentByIdQueryHandler.cs`
+
+```csharp
+namespace Market.Application.Modules.Sales.OrderShipments.Queries.GetById;
+
+public sealed class GetOrderShipmentByIdQueryHandler(IAppDbContext context)
+    : IRequestHandler<GetOrderShipmentByIdQuery, GetOrderShipmentByIdQueryDto>
+{
+    public async Task<GetOrderShipmentByIdQueryDto> Handle(
+        GetOrderShipmentByIdQuery request,
+        CancellationToken cancellationToken)
+    {
+        var q = context.OrderShipments
+            .Where(x => x.Id == request.Id);
+
+        var dto = await q
+            .Select(x => new GetOrderShipmentByIdQueryDto
+            {
+                Id = x.Id,
+                ShipmentNumber = x.ShipmentNumber,
+                OrderId = x.OrderId,
+                OrderReferenceNumber = x.Order!.ReferenceNumber,
+                Status = x.Status,
+                ShippingCost = x.ShippingCost,
+                ShippedAtUtc = x.ShippedAtUtc,
+                DeliveredAtUtc = x.DeliveredAtUtc
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (dto == null)
+        {
+            throw new MarketNotFoundException($"Order shipment with Id {request.Id} not found.");
+        }
+
+        return dto;
+    }
+}
+```
+
+**Zašto `x.Order!`:** isto kao `Category!.Name` u `GetProductByIdQueryHandler`. EF to pretvara u JOIN. `OrderId` je obavezan, pa ako pošiljka postoji, postoji i narudžba.
+
+**Zašto ne `Find`:** `Find` vrati cijeli entitet, pa bi `OrderReferenceNumber` morala puniti naknadno. `Select` radi projekciju odmah.
 
 #### Korak B4: Controller
 
