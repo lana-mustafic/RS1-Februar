@@ -1649,7 +1649,49 @@ Kolona akcija u `posiljke.component.html`:
 | Datum dostave | `{{ item.deliveredAtUtc \| date:'dd.MM.yyyy' }}` ili `'-'` ako je null |
 | Status | ostavi postojeći HTML: `status-{{ item.status }}` + `{{ item.statusNaziv }}` |
 
-Ako ostaviš sirovi ISO string, profesor vidi `2026-02-02T...` umjesto `02.02.2026`.
+Ako ostaviš sirovi ISO string, profesor vidi `2026-02-02T...` umjesto `02.02.2026`. `date` i `number` pipe su u `CommonModule`, koji lista već ima. Ne dodaješ import.
+
+`number:'1.1-1'` znači najmanje jedna cifra prije tačke i tačno jedna iza. `8` postane `8.0`, `12.5` ostane `12.5`.
+
+Status se ne dira. Klasa `status-1` … `status-5` već postoji u SCSS-u, a tekst dolazi iz `statusNaziv`.
+
+U `posiljke.component.html` zamijeni tri ćelije:
+
+```html
+<ng-container matColumnDef="status">
+  <th mat-header-cell *matHeaderCellDef>Status</th>
+  <td mat-cell *matCellDef="let item">
+    <span class="status-badge status-{{ item.status }}">
+      {{ item.statusNaziv }}
+    </span>
+  </td>
+</ng-container>
+
+<ng-container matColumnDef="shippingCost">
+  <th mat-header-cell *matHeaderCellDef>Cijena dostave</th>
+  <td mat-cell *matCellDef="let item">
+    <span style="font-weight: 600; color: #4976b5">
+      {{ item.shippingCost | number:'1.1-1' }} KM
+    </span>
+  </td>
+</ng-container>
+
+<ng-container matColumnDef="shippedAtUtc">
+  <th mat-header-cell *matHeaderCellDef>Datum slanja</th>
+  <td mat-cell *matCellDef="let item">
+    {{ item.shippedAtUtc | date:'dd.MM.yyyy' }}
+  </td>
+</ng-container>
+
+<ng-container matColumnDef="deliveredAtUtc">
+  <th mat-header-cell *matHeaderCellDef>Datum dostave</th>
+  <td mat-cell *matCellDef="let item">
+    {{ (item.deliveredAtUtc | date:'dd.MM.yyyy') || '-' }}
+  </td>
+</ng-container>
+```
+
+**Zašto ne `deliveredAtUtc || '-'` bez pipe-a:** kad datum postoji, izraz je truthy i Angular ispiše cijeli ISO string. Pipe prvo pretvori datum u `dd.MM.yyyy`. Ako je `null`, `date` vrati prazno, pa `|| '-'` pokaže crtu.
 
 #### Korak G7: Brisanje (logika na listi)
 
