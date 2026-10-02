@@ -2059,6 +2059,40 @@ export class PosiljkaEditComponent
 
 Pravu logiku **ne radi frontend**. Frontend samo šalje novi status.
 
+`status` control već postoji u `initForm` iz koraka I2. Ovdje ga samo vežeš u HTML. Vrijednost opcije mora biti **broj** enuma (`1`…`5`), ne tekst. `UpdateOrderShipmentCommand.Status` i `IsInEnum()` očekuju taj broj.
+
+U klasu dodaj niz. `OrderShipmentStatusType` je već uvezen:
+
+```ts
+statuses = [
+  { value: OrderShipmentStatusType.Kreirana, label: 'Kreirana' },
+  { value: OrderShipmentStatusType.USkladistu, label: 'U skladištu' },
+  { value: OrderShipmentStatusType.UDostavi, label: 'U dostavi' },
+  { value: OrderShipmentStatusType.Dostavljena, label: 'Dostavljena' },
+  { value: OrderShipmentStatusType.Otkazana, label: 'Otkazana' }
+];
+```
+
+U `posiljka-edit.component.html`, poslije polja za narudžbu, a prije dugmadi:
+
+```html
+<mat-form-field appearance="outline" class="full-width">
+  <mat-label>Status</mat-label>
+  <mat-select formControlName="status">
+    <mat-option *ngFor="let s of statuses" [value]="s.value">
+      {{ s.label }}
+    </mat-option>
+  </mat-select>
+</mat-form-field>
+
+<p>Datum slanja: {{ model?.shippedAtUtc | date:'dd.MM.yyyy' }}</p>
+<p>Datum dostave: {{ (model?.deliveredAtUtc | date:'dd.MM.yyyy') || '-' }}</p>
+
+<p>Ako status postane Dostavljena, datum dostave se postavlja automatski na serveru.</p>
+```
+
+Datumi su običan tekst sa `model`, ne `formControlName`. Disabled polje bi ispalo iz `form.value`, a `getRawValue()` bi ga poslalo backendu koji te datume na update-u ne prima. Handler sam upiše `DeliveredAtUtc` kad status postane `Dostavljena` i stari datum još ne postoji. Dok korisnik sjedi na formi, crta na ekranu ostaje dok se ne vrati na listu.
+
 #### Korak I4: `save()`
 
 `api.update(this.id, payload)` → toast → lista.
