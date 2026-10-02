@@ -2148,6 +2148,30 @@ onDelete(item: ListOrderShipmentsQueryDto): void {
 
 `api.delete(item.id)` → toast uspjeh → `loadPagedData()`.
 
+Ovo je `performDelete`, metoda koju J1 zove samo poslije `DialogButton.DELETE`. `OrderShipmentsApiService` i `ToasterService` su već injektovani na listi.
+
+```ts
+private performDelete(item: ListOrderShipmentsQueryDto): void {
+  this.startLoading();
+
+  this.api.delete(item.id).subscribe({
+    next: () => {
+      this.toaster.success('Pošiljka je obrisana');
+      this.loadPagedData();
+    },
+    error: (err) => {
+      this.stopLoading();
+      this.toaster.error('Greška pri brisanju pošiljke');
+      console.error('Delete shipment error:', err);
+    }
+  });
+}
+```
+
+`loadPagedData()` samo ponovo zove `GET /OrderShipments`. Soft-delete iz koraka E2 više ne vraća taj red, pa nestane iz tabele. Ne vadiš ga ručno iz `items`.
+
+Na uspjehu nema `stopLoading()` prije reloada. `loadPagedData` sam pali i gasi loading. Na grešci mora `stopLoading()`, inače spinner ostane.
+
 #### Korak J3: Ako otkaže
 
 Ne zovi API. Modal se zatvara sam.
