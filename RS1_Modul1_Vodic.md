@@ -1697,13 +1697,21 @@ U `posiljke.component.html` zamijeni tri ćelije:
 
 Vidi Fazu J. Poziva se iz liste, ne iz posebne stranice.
 
+Kanta već zove `onDelete(item)` iz koraka G5. Tu praznu metodu puniš u fazi J (`confirmDelete`, pa `api.delete`, pa `loadPagedData`). Ne praviš rutu `posiljke/:id/delete` i ne praviš novu komponentu. `admin-routing-module.ts` za pošiljke ima samo listu, add i edit.
+
+Dok J nije gotov, klik na kantu ne radi ništa. Lista se i dalje može testirati.
+
 **Kako testirati listu:**
 
-- Otvori `/admin/posiljke` — vidiš seed podatke, ne ona 6 hardkodiranih
-- Promijeni stranicu
-- Filtriraj po narudžbi — broj redova se mijenja, page ide na 1
-- „Sve narudžbe" vraća sve
-- Network tab: `GET http://localhost:7001/OrderShipments?paging.page=1&...`
+1. Uloguj se i otvori `/admin/posiljke`.
+2. Vidiš seed, ne 6 hardkodiranih redova iz startera. Seed ima **12** pošiljki, `SHP-00001` … `SHP-00012`.
+3. Cijena ima jednu decimalu (`12.5 KM`), datumi su `dd.MM.yyyy`, prazan datum dostave je `-`.
+4. Sa `pageSize = 10` prva strana ima 10 redova, druga 2. Paginator piše ukupno 12.
+5. U Network tabu prvi poziv je `GET http://localhost:7001/OrderShipments?paging.page=1&paging.pageSize=10`. Nema `orderId`.
+6. Odaberi jednu narudžbu. `paging.page` se vraća na 1, a URL dobije `orderId`. Prva narudžba u seedu ima dvije pošiljke (`SHP-00001` i `SHP-00006`), pa se lista smanji.
+7. „Sve narudžbe" skine `orderId` iz query stringa i vrati svih 12.
+
+Ako i dalje vidiš tačno onih 6 starter redova (`SHP-00001` … `SHP-00006` s datumima upisanim kao tekst), lokalni `items` nije obrisan i tabela ne čita API.
 
 ---
 
