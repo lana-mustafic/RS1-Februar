@@ -886,6 +886,50 @@ public sealed class CreateOrderShipmentCommandValidator : AbstractValidator<Crea
 
 `CreatedAtUtc` i `IsDeleted` postavlja `ApplyAuditAndSoftDelete`. Ne diraj ih.
 
+Fajl: `Market.Application/Modules/Sales/OrderShipments/Commands/Create/CreateOrderShipmentCommandHandler.cs`
+
+```csharp
+using Market.Domain.Entities.Sales;
+
+namespace Market.Application.Modules.Sales.OrderShipments.Commands.Create;
+
+public sealed class CreateOrderShipmentCommandHandler(IAppDbContext ctx)
+    : IRequestHandler<CreateOrderShipmentCommand, int>
+{
+    public async Task<int> Handle(CreateOrderShipmentCommand request, CancellationToken ct)
+    {
+        var order = await ctx.Orders
+            .FirstOrDefaultAsync(x => x.Id == request.OrderId, ct);
+
+        if (order is null)
+        {
+            throw new MarketNotFoundException($"Order with Id {request.OrderId} not found.");
+        }
+
+        var entity = new OrderShipmentEntity
+        {
+            ShipmentNumber = request.ShipmentNumber.Trim(),
+            ShippingCost = request.ShippingCost,
+            OrderId = request.OrderId,
+            Status = OrderShipmentStatusType.Kreirana,
+            ShippedAtUtc = DateTime.UtcNow,
+            DeliveredAtUtc = null
+        };
+
+        ctx.OrderShipments.Add(entity);
+        await ctx.SaveChangesAsync(ct);
+
+        return entity.Id;
+    }
+}
+```
+
+**Zašto provjera narudžbe:** `OrderId` u validatoru samo mora biti veći od 0. Ovdje gledaš da taj red stvarno postoji. Nema ga → 404, isto kao `ProductCategory` u uzoru.
+
+**Zašto nema cache-a i unique provjere:** pošiljke nisu katalog. Zadatak ne traži jedinstven broj pošiljke ni `BumpVersionAsync`.
+
+**Zašto ne diraš `CreatedAtUtc` i `IsDeleted`:** `DatabaseContext.SaveChangesAsync` zove `ApplyAuditAndSoftDelete` i sam upisuje audit polja prije snimanja.
+
 #### Korak C4: Controller POST
 
 - **Otvori:** `ProductsController.Create`
