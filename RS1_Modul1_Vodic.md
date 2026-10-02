@@ -2110,24 +2110,39 @@ Payload mora imati `status` (broj).
 
 ### FAZA J — Brisanje
 
-Radi se u `PosiljkeComponent`, ne na posebnoj ruti.
+Radi se u `PosiljkeComponent`, ne na posebnoj ruti. Kanta već zove `onDelete(item)` iz koraka G5. Ovdje puniš tu metodu. Nema `posiljke/:id/delete`.
 
 #### Korak J1: Modal
 
 - **Otvori:** `products.component.ts` → `onDelete`
 - **Otvori:** `dialog-helper.service.ts` → metoda `confirmDelete(itemName)`
 
-`dialogHelper.product.confirmDelete` koristi prevod za proizvode. Za pošiljke koristi **generičku** metodu:
+`dialogHelper.product.confirmDelete` koristi prevod za proizvode (`PRODUCTS.DIALOGS.DELETE_MESSAGE`). Za pošiljke koristi **generičku** metodu `this.dialogHelper.confirmDelete(...)`. Ona već postoji, `providedIn: 'root'`. Ne praviš novi dijalog.
+
+Generički ključ je `DIALOGS.MESSAGES.DELETE_CONFIRM`. Na bosanskom to je: Da li ste sigurni da želite obrisati „{{name}}"? `name` je `item.shipmentNumber`, npr. `SHP-00003`. Naslov je „Potvrdi Brisanje".
+
+U `posiljke.component.ts` dodaj importe. Putanja je `../../../shared`, ne `../../../../` kao kod Products.
 
 ```ts
-this.dialogHelper.confirmDelete(item.shipmentNumber).subscribe(result => {
-  if (result && result.button === DialogButton.DELETE) {
-    this.performDelete(item);
-  }
-});
+import { DialogHelperService } from '../../../shared/services/dialog-helper.service';
+import { DialogButton } from '../../../shared/models/dialog-config.model';
 ```
 
-To otvara modal „Da li ste sigurni...?" s imenom pošiljke.
+```ts
+private dialogHelper = inject(DialogHelperService);
+
+onDelete(item: ListOrderShipmentsQueryDto): void {
+  this.dialogHelper.confirmDelete(item.shipmentNumber).subscribe(result => {
+    if (result && result.button === DialogButton.DELETE) {
+      this.performDelete(item);
+    }
+  });
+}
+```
+
+`performDelete` pišeš u koraku J2. Dok je prazan, modal se otvori, a klik na Obriši ne zove API.
+
+**Zašto `DialogButton.DELETE`:** dugme Otkaži vraća `DialogButton.CANCEL`. Samo `DELETE` smije ući u `if`. Zatvaranje modala bez tog dugmeta ostavlja `result` prazan, pa se brisanje ne desi.
 
 #### Korak J2: Ako potvrdi
 
