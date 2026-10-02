@@ -1719,13 +1719,56 @@ Ako i dalje vidiš tačno onih 6 starter redova (`SHP-00001` … `SHP-00006` s d
 
 Starter HTML je samo `<p>posiljka-add works!</p>`. TS je prazna klasa. SCSS fajl **ne postoji**, a `styleUrl` ga već zove — **kopiraj** `products-add.component.scss` u `posiljka-add.component.scss` (isti izgled form-card). Dizajn ne moraš raditi ručno.
 
+Kopiraj cijeli fajl, ne piši CSS:
+
+| Od | U |
+|----|---|
+| `src/app/modules/admin/catalogs/products/products-add/products-add.component.scss` | `src/app/modules/admin/posiljke/posiljka-add/posiljka-add.component.scss` |
+
+`styleUrl: './posiljka-add.component.scss'` u starteru već pokazuje na taj fajl. Dok ga nema, `ng serve` padne na add ruti. Ruta `/admin/posiljke/add` i komponenta u modulu već postoje. Ne dodaješ rutu.
+
 #### Korak H1: Uzor
 
-- `products-add.component.ts`
-- `products-add.component.html`
-- `product-form.service.ts`
+Otvori ova tri fajla i gledaj obrazac, ne polja proizvoda:
+
+| Fajl | Šta uzmeš |
+|------|-----------|
+| `products-add.component.ts` | `extends BaseFormComponent`, `initForm(false)`, prazan `loadData()`, `save()`, toast, `navigate` nazad |
+| `products-add.component.html` | `form-card`, `[formGroup]`, `mat-form-field`, Sačuvaj / Odustani |
+| `product-form.service.ts` | `FormBuilder` + `Validators`. Servis je `providers: [ProductFormService]` na komponenti, nema `providedIn: 'root'` |
 
 Možeš formu praviti **u komponenti** (brže na ispitu) ili izdvojiti `PosiljkaFormService` ako želiš share s editom. Oba su OK. Products koristi form servis jer add i edit dijele ista polja. Kod pošiljki edit ima **dodatni status**, pa forma nije 100% ista — možeš dva `FormGroup`-a ili jedan servis s parametrom `isEdit`.
+
+Na ispitu radi formu u `PosiljkaAddComponent`. Edit u fazi I dobije svoj `FormGroup` s poljem `status`. Ne troši vrijeme na servis.
+
+Ako ipak hoćeš jedan servis, fajl `src/app/modules/admin/posiljke/posiljka-add/posiljka-form.service.ts`. `createForm(isEdit)` doda status samo na edit:
+
+```ts
+import { Injectable, inject } from '@angular/core';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { OrderShipmentStatusType } from '../../../../api-services/order-shipments/order-shipments-api.models';
+
+@Injectable()
+export class PosiljkaFormService {
+  private fb = inject(FormBuilder);
+
+  createForm(isEdit: boolean): FormGroup {
+    const controls: Record<string, unknown> = {
+      shipmentNumber: ['', [Validators.required, Validators.maxLength(20)]],
+      shippingCost: [null, [Validators.required, Validators.min(0.01)]],
+      orderId: [null, [Validators.required]]
+    };
+
+    if (isEdit) {
+      controls['status'] = [OrderShipmentStatusType.Kreirana, [Validators.required]];
+    }
+
+    return this.fb.group(controls);
+  }
+}
+```
+
+Servis stavi u `providers` na add i na edit komponenti, kao `ProductFormService`. Bez toga `inject(PosiljkaFormService)` baci `NullInjectorError`. Koraci H2 i H3 pišu formu u komponenti, bez ovog servisa.
 
 #### Korak H2: TS obrazac
 
