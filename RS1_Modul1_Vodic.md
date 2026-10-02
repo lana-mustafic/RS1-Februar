@@ -1926,6 +1926,14 @@ Kopiraj strukturu `products-add.component.html`:
 
 Isti problem: prazan HTML, nema SCSS. Kopiraj add SCSS / products-edit SCSS.
 
+`styleUrl` već pokazuje na `posiljka-edit.component.scss`, a fajl ne postoji. Kopiraj jedan od ova dva, ne piši CSS:
+
+| Od | U |
+|----|---|
+| `src/app/modules/admin/posiljke/posiljka-add/posiljka-add.component.scss` | `src/app/modules/admin/posiljke/posiljka-edit/posiljka-edit.component.scss` |
+
+Ako add SCSS još nisi kopirala, uzmi `products-edit.component.scss` iz `catalogs/products/products-edit/`. Ruta `posiljke/:id/edit` već postoji.
+
 #### Korak I1: Učitaj id iz rute
 
 ```ts
@@ -1933,15 +1941,115 @@ this.id = +this.route.snapshot.params['id'];
 this.initForm(true);
 ```
 
-Ruta je već `posiljke/:id/edit`.
+Ruta je već `posiljke/:id/edit`. `+` pretvara string iz URL-a u broj. Za `/admin/posiljke/5/edit` je `id === 5`.
+
+`initForm(true)` na bazi postavi `isEditMode` i **odmah zove `loadData()`**. Zato `FormGroup` napravi prije `super.initForm(isEdit)`, inače `patchValue` padne na prazan `form`.
 
 #### Korak I2: `loadData()`
 
-Kao products-edit: možeš `forkJoin` pošiljka + lista narudžbi.
+Kao products-edit: `forkJoin` pošiljka + lista narudžbi.
 
 - `api.getById(this.id)`
-- popuni formu (`patchValue` ili form servis s modelom)
+- popuni formu (`patchValue`)
 - ako 404: toast + nazad na listu
+
+`forkJoin` čeka oba poziva. Dropdown i polja se pojave zajedno. Greška na bilo kom od njih ide u `error`: toast i `navigate` na listu. API za nepostojeći id vrati 404, a `HttpClient` to tretira kao grešku.
+
+Status ide u formu jer ga edit šalje. Datume ne stavljaš u `FormGroup`. Ostanu na `this.model` i u koraku I3 se samo prikazuju.
+
+Fajl: `src/app/modules/admin/posiljke/posiljka-edit/posiljka-edit.component.ts`
+
+`save()` je prazan do koraka I4. Mora postojati jer je apstraktan na `BaseFormComponent`.
+
+```ts
+import { Component, inject, OnInit } from '@angular/core';
+import { FormBuilder, Validators } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { forkJoin } from 'rxjs';
+import {
+  GetOrderShipmentByIdQueryDto,
+  OrderShipmentStatusType
+} from '../../../../api-services/order-shipments/order-shipments-api.models';
+import { OrderShipmentsApiService } from '../../../../api-services/order-shipments/order-shipments-api.service';
+import { ListOrdersQueryDto } from '../../../../api-services/orders/orders-api.models';
+import { OrdersApiService } from '../../../../api-services/orders/orders-api.service';
+import { BaseFormComponent } from '../../../../core/components/base-classes/base-form-component';
+import { largePaging } from '../../../../core/models/paging/paging-utils';
+import { ToasterService } from '../../../../core/services/toaster.service';
+
+@Component({
+  selector: 'app-posiljka-edit',
+  standalone: false,
+  templateUrl: './posiljka-edit.component.html',
+  styleUrl: './posiljka-edit.component.scss'
+})
+export class PosiljkaEditComponent
+  extends BaseFormComponent<GetOrderShipmentByIdQueryDto>
+  implements OnInit {
+
+  private api = inject(OrderShipmentsApiService);
+  private ordersApi = inject(OrdersApiService);
+  private fb = inject(FormBuilder);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private toaster = inject(ToasterService);
+
+  id!: number;
+  orders: ListOrdersQueryDto[] = [];
+
+  ngOnInit(): void {
+    this.id = +this.route.snapshot.params['id'];
+    this.initForm(true);
+  }
+
+  protected override initForm(isEdit: boolean): void {
+    this.form = this.fb.group({
+      shipmentNumber: ['', [Validators.required, Validators.maxLength(20)]],
+      shippingCost: [null, [Validators.required, Validators.min(0.01)]],
+      orderId: [null, [Validators.required]],
+      status: [OrderShipmentStatusType.Kreirana, [Validators.required]]
+    });
+
+    super.initForm(isEdit);
+  }
+
+  protected loadData(): void {
+    this.startLoading();
+
+    forkJoin({
+      shipment: this.api.getById(this.id),
+      orders: this.ordersApi.list({ paging: largePaging })
+    }).subscribe({
+      next: ({ shipment, orders }) => {
+        this.model = shipment;
+        this.orders = orders.items;
+        this.form.patchValue({
+          shipmentNumber: shipment.shipmentNumber,
+          shippingCost: shipment.shippingCost,
+          orderId: shipment.orderId,
+          status: shipment.status
+        });
+        this.stopLoading();
+      },
+      error: (err) => {
+        this.stopLoading();
+        this.toaster.error('Pošiljka nije pronađena');
+        console.error('Load shipment error:', err);
+        this.router.navigate(['/admin/posiljke']);
+      }
+    });
+  }
+
+  protected save(): void {
+  }
+
+  onCancel(): void {
+    this.router.navigate(['/admin/posiljke']);
+  }
+}
+```
+
+**Zašto `this.model`:** `GetOrderShipmentByIdQueryDto` ima `shippedAtUtc` i `deliveredAtUtc`. HTML u koraku I3 čita te datume sa modela. Nisu u formi, pa ih `save` ne pošalje i korisnik ih ne promijeni.
 
 #### Korak I3: Dodatna polja u odnosu na Add
 
