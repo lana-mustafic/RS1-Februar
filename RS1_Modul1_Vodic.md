@@ -1144,6 +1144,38 @@ public sealed class DeleteOrderShipmentCommand : IRequest<Unit>
 
 Zbog soft-delete interceptor-a, red ostaje u bazi s `IsDeleted = true`, a lista ga više ne vraća. To je OK.
 
+Fajl: `Market.Application/Modules/Sales/OrderShipments/Commands/Delete/DeleteOrderShipmentCommandHandler.cs`
+
+```csharp
+namespace Market.Application.Modules.Sales.OrderShipments.Commands.Delete;
+
+public sealed class DeleteOrderShipmentCommandHandler(IAppDbContext ctx)
+    : IRequestHandler<DeleteOrderShipmentCommand, Unit>
+{
+    public async Task<Unit> Handle(DeleteOrderShipmentCommand request, CancellationToken ct)
+    {
+        var entity = await ctx.OrderShipments
+            .FirstOrDefaultAsync(x => x.Id == request.Id, ct);
+
+        if (entity is null)
+        {
+            throw new MarketNotFoundException($"Order shipment with Id {request.Id} not found.");
+        }
+
+        ctx.OrderShipments.Remove(entity);
+        await ctx.SaveChangesAsync(ct);
+
+        return Unit.Value;
+    }
+}
+```
+
+**Zašto `Remove`, a red ostaje:** `ApplyAuditAndSoftDelete` u `SaveChangesAsync` vidi `EntityState.Deleted`, promijeni ga u `Modified` i postavi `IsDeleted = true`. SQL je `UPDATE`, ne `DELETE`.
+
+**Zašto lista i drugi DELETE ne vide red:** globalni filter je `IsDeleted == false`. Soft-obrisana pošiljka ne ulazi u upite, pa ponovni DELETE iste pošiljke vraća 404.
+
+**Šta ne kopiraš:** `IAppCurrentUser` i `if (!appCurrentUser.IsAdmin)` — to pravilo je samo za proizvode. `ICatalogCacheVersionService` i `BumpVersionAsync` isto. Konstruktor prima samo `IAppDbContext`.
+
 #### Korak E3: Controller DELETE
 
 ```csharp
