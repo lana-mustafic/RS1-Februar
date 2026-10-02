@@ -1402,6 +1402,84 @@ export class PosiljkeComponent
 
 `displayedColumns` već postoji i odgovara tabeli. Ostavi ga.
 
+`items` više ne deklariraš. Dolazi iz `BaseListComponent`, a `handlePageResult` ga puni iz `response.items`. Ako ostaviš lokalni niz, on sakrije bazni i tabela ostane na hardkodu.
+
+`onCreate()` ostavi prazan. HTML već zove `(click)="onCreate()"`. Navigaciju dopisuješ u koraku G5.
+
+Fajl: `src/app/modules/admin/posiljke/posiljke.component.ts`
+
+Importi su `../../../`, ne `../../../../`. Pošiljke su u `modules/admin/posiljke`, a Products je jedan folder dublje (`catalogs/products`).
+
+```ts
+import { Component, inject, OnInit } from '@angular/core';
+import {
+  ListOrderShipmentsQueryDto,
+  ListOrderShipmentsRequest
+} from '../../../api-services/order-shipments/order-shipments-api.models';
+import { OrderShipmentsApiService } from '../../../api-services/order-shipments/order-shipments-api.service';
+import { BaseListPagedComponent } from '../../../core/components/base-classes/base-list-paged-component';
+import { ToasterService } from '../../../core/services/toaster.service';
+
+@Component({
+  selector: 'app-posiljke',
+  standalone: false,
+  templateUrl: './posiljke.component.html',
+  styleUrl: './posiljke.component.scss'
+})
+export class PosiljkeComponent
+  extends BaseListPagedComponent<ListOrderShipmentsQueryDto, ListOrderShipmentsRequest>
+  implements OnInit {
+
+  private api = inject(OrderShipmentsApiService);
+  private toaster = inject(ToasterService);
+
+  displayedColumns: string[] = [
+    'shipmentNumber',
+    'orderReferenceNumber',
+    'status',
+    'shippingCost',
+    'shippedAtUtc',
+    'deliveredAtUtc',
+    'actions'
+  ];
+
+  constructor() {
+    super();
+    this.request = new ListOrderShipmentsRequest();
+    this.request.paging.pageSize = 10;
+  }
+
+  ngOnInit(): void {
+    this.initList();
+  }
+
+  protected loadPagedData(): void {
+    this.startLoading();
+
+    this.api.list(this.request).subscribe({
+      next: (response) => {
+        this.handlePageResult(response);
+        this.stopLoading();
+      },
+      error: (err) => {
+        this.stopLoading('Failed to load shipments');
+        this.toaster.error('Failed to load shipments');
+        console.error('Load shipments error:', err);
+      }
+    });
+  }
+
+  onCreate(): void {
+  }
+}
+```
+
+**Zašto `pageSize = 10`:** `PageRequest` ima default `pageSize = 1000`. Seed ima 12 pošiljki, pa bi bez ove linije sve stalo na jednu stranu i paginator izgleda kao da ne radi. Sa 10 vidiš 10 redova i drugu stranu.
+
+**Zašto `super()`:** bazna klasa ima konstruktor. Bez `super()` TypeScript ne kompajlira klasu koja `extends`.
+
+**Šta `initList` radi:** zove `loadData()`, a `BaseListPagedComponent` to preusmjerava na tvoj `loadPagedData()`. Zato u `ngOnInit` ne zoveš `loadPagedData()` direktno, nego `initList()`, kao Products.
+
 #### Korak G3: Filter po narudžbi
 
 1. Injektuj `OrdersApiService` (već postoji).
