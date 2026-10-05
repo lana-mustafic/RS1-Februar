@@ -3224,42 +3224,106 @@ Ako je `POST` 400, pogledaj tijelo: `shippingCost` ili `orderId` su i dalje stri
 
 ### FAZA I — Uređivanje (`PosiljkaEditComponent`)
 
-Isti problem: prazan HTML, nema SCSS. Kopiraj add SCSS / products-edit SCSS.
+Ruta `posiljke/:id/edit` i klasa u `AdminModule` već postoje. Ne dodaješ rutu. Olovka iz G5 već otvara `/admin/posiljke/5/edit`.
 
-`styleUrl` već pokazuje na `posiljka-edit.component.scss`, a fajl ne postoji. Kopiraj jedan od ova dva, ne piši CSS:
+Starter je prazan, isto kao add:
+
+```ts
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-posiljka-edit',
+  standalone: false,
+  templateUrl: './posiljka-edit.component.html',
+  styleUrl: './posiljka-edit.component.scss'
+})
+export class PosiljkaEditComponent {
+
+}
+```
+
+```html
+<p>posiljka-edit works!</p>
+```
+
+`styleUrl` pokazuje na `posiljka-edit.component.scss`, a taj fajl ne postoji. Dok ga nema, `ng serve` padne na edit ruti. Kopiraj cijeli SCSS, ne piši CSS. Prvo iz add forme, ako si je već kopirala u fazi H:
 
 | Od | U |
 |----|---|
 | `src/app/modules/admin/posiljke/posiljka-add/posiljka-add.component.scss` | `src/app/modules/admin/posiljke/posiljka-edit/posiljka-edit.component.scss` |
 
-Ako add SCSS još nisi kopirala, uzmi `products-edit.component.scss` iz `catalogs/products/products-edit/`. Ruta `posiljke/:id/edit` već postoji.
+Ako add SCSS još nema, uzmi products:
+
+| Od | U |
+|----|---|
+| `src/app/modules/admin/catalogs/products/products-edit/products-edit.component.scss` | `src/app/modules/admin/posiljke/posiljka-edit/posiljka-edit.component.scss` |
+
+Isti izgled kartice kao add. I1 i I2 mijenjaju samo TS. Ekran i dalje piše `posiljka-edit works!` dok HTML ne nalijepiš u I3. U Networku se učitavanje ipak vidi.
 
 #### Korak I1: Učitaj id iz rute
 
+Ruta u `admin-routing-module.ts`:
+
 ```ts
-this.id = +this.route.snapshot.params['id'];
-this.initForm(true);
+{
+  path: 'posiljke/:id/edit',
+  component: PosiljkaEditComponent,
+}
 ```
 
-Ruta je već `posiljke/:id/edit`. `+` pretvara string iz URL-a u broj. Za `/admin/posiljke/5/edit` je `id === 5`.
+`:id` je parametar. Za URL `/admin/posiljke/5/edit` Angular drži `"5"` kao string u `route.snapshot.params['id']`.
 
-`initForm(true)` na bazi postavi `isEditMode` i **odmah zove `loadData()`**. Zato `FormGroup` napravi prije `super.initForm(isEdit)`, inače `patchValue` padne na prazan `form`.
+```ts
+ngOnInit(): void {
+  this.id = +this.route.snapshot.params['id'];
+  this.initForm(true);
+}
+```
+
+`+` ispred stringa pravi broj. `+"5"` je `5`, `typeof this.id` je `"number"`. `getById` i kasnije `update` taj broj lijepe u URL: `GET /OrderShipments/5`. Bez `+`, id ostane string `"5"`. Često i to prođe, ali Products koristi `+` i tip polja je `number`.
+
+`snapshot` pročita URL jednom, u `ngOnInit`. Komponenta se pravi iznova svaki put kad s liste odeš na edit, pa je to dosta. Isto radi `products-edit` sa `productId`.
+
+`initForm(true)` na bazi upiše režim i odmah uđe u `loadData`:
+
+```ts
+protected initForm(isEdit: boolean): void {
+  this.isEditMode = isEdit;
+
+  if (isEdit) {
+    this.loadData();
+  }
+}
+```
+
+Zato grupu praviš **prije** `super.initForm(isEdit)`. `loadData` u `next` zove `this.form.patchValue(...)`. Ako `this.form` još ne postoji, to padne. Add u fazi H smije prvo zvati `super`, jer je `initForm(false)` i baza ne zove `loadData`. Edit ne smije taj redoslijed.
+
+```ts
+protected override initForm(isEdit: boolean): void {
+  this.form = this.fb.group({
+    shipmentNumber: ['', [Validators.required, Validators.maxLength(20)]],
+    shippingCost: [null, [Validators.required, Validators.min(0.01)]],
+    orderId: [null, [Validators.required]],
+    status: [OrderShipmentStatusType.Kreirana, [Validators.required]]
+  });
+
+  super.initForm(isEdit);
+}
+```
+
+Products edit formu pravi unutar `next`, preko `formService.createProductForm(product)`. Ti nemaš taj servis. Prazan `FormGroup` nastane odmah, a `patchValue` ga popuni kad HTTP stigne. Četvrta kontrola, `status`, na add-u ne postoji. Ovdje postoji jer je `UpdateOrderShipmentCommand` šalje. Početna vrijednost `Kreirana` traje samo dok odgovor ne stigne. `patchValue` je zamijeni stvarnim statusom.
+
+Datuma nema u grupi. `shippedAtUtc` i `deliveredAtUtc` ostanu na `this.model`.
 
 #### Korak I2: `loadData()`
 
-Kao products-edit: `forkJoin` pošiljka + lista narudžbi.
-
-- `api.getById(this.id)`
-- popuni formu (`patchValue`)
-- ako 404: toast + nazad na listu
-
-`forkJoin` čeka oba poziva. Dropdown i polja se pojave zajedno. Greška na bilo kom od njih ide u `error`: toast i `navigate` na listu. API za nepostojeći id vrati 404, a `HttpClient` to tretira kao grešku.
-
-Status ide u formu jer ga edit šalje. Datume ne stavljaš u `FormGroup`. Ostanu na `this.model` i u koraku I3 se samo prikazuju.
-
 Fajl: `src/app/modules/admin/posiljke/posiljka-edit/posiljka-edit.component.ts`
 
-`save()` je prazan do koraka I4. Mora postojati jer je apstraktan na `BaseFormComponent`.
+Importi su `../../../../`, kao na add. `products-edit` je jedan folder dublje i ima pet `../`. `forkJoin` je iz `rxjs`, ne iz relativne putanje.
+
+`save()` je prazan do I4. Mora postojati: na `BaseFormComponent` je `abstract`. Dok je prazan, nema `PUT`.
+
+Cijela klasa poslije I2:
 
 ```ts
 import { Component, inject, OnInit } from '@angular/core';
@@ -3349,7 +3413,42 @@ export class PosiljkaEditComponent
 }
 ```
 
-**Zašto `this.model`:** `GetOrderShipmentByIdQueryDto` ima `shippedAtUtc` i `deliveredAtUtc`. HTML u koraku I3 čita te datume sa modela. Nisu u formi, pa ih `save` ne pošalje i korisnik ih ne promijeni.
+`forkJoin` pusti oba poziva odjednom i `next` dobiješ tek kad oba uspiju:
+
+```
+GET http://localhost:7001/OrderShipments/5
+GET http://localhost:7001/Orders?paging.page=1&paging.pageSize=100
+```
+
+Imena `shipment` i `orders` su ključevi objekta koji si predala `forkJoin`. U `next` se raspadnu u dvije varijable. `orders` ovdje je `PageResult`, pa niz za select ide iz `orders.items`. Ako upišeš `this.orders = orders`, dropdown nema `id` ni `referenceNumber`.
+
+`this.model` je polje na bazi, `model?: TModel`. TModel je `GetOrderShipmentByIdQueryDto`:
+
+```ts
+export interface GetOrderShipmentByIdQueryDto {
+  id: number;
+  shipmentNumber: string;
+  orderId: number;
+  orderReferenceNumber: string;
+  status: OrderShipmentStatusType;
+  shippingCost: number;
+  shippedAtUtc: string;
+  deliveredAtUtc: string | null;
+}
+```
+
+`patchValue` prepiše samo četiri ključa koja forma ima. `shippedAtUtc`, `deliveredAtUtc`, `id` i `orderReferenceNumber` ostanu na `this.model`. I3 ih čita odatle. Nisu u `form.value`, pa ih `save` u I4 ne pošalje i korisnik ih ne može promijeniti.
+
+`status: shipment.status` je broj `1`…`5`, isti enum kao na bedžu liste. Ne upisuješ tekst `"Kreirana"`.
+
+Ako bilo koji od dva poziva padne, `forkJoin` ne uđe u `next`. 404 na `GET /OrderShipments/99999` je greška `HttpClient`-a, ne prazan objekat. `error` ugasi loading, pokaže toast i vrati na `/admin/posiljke`. Isti `error` ulovi i pad `GET /Orders`. Forma tada ostane prazna, ali si već na listi.
+
+##### Provjera prije I3
+
+1. Edit ruta se otvori. Ako `ng serve` traži `posiljka-edit.component.scss`, kopija nije na toj putanji.
+2. Olovka na postojećem redu, npr. id `5`. URL je `/admin/posiljke/5/edit`. Stranica još piše `posiljka-edit works!`. To je starter HTML, ne znak da `loadData` nije radio.
+3. U Networku su oba GET-a, paralelno. `OrderShipments/5` vrati jedan objekat sa `shipmentNumber`, `orderId`, `status`, `shippedAtUtc`, `deliveredAtUtc`.
+4. `/admin/posiljke/99999/edit` pokaže toast „Pošiljka nije pronađena" i vrati na listu. Nema `PUT`.
 
 #### Korak I3: Dodatna polja u odnosu na Add
 
