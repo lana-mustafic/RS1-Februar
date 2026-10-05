@@ -2540,20 +2540,40 @@ Ime u šablonu je `item`, jer piše `*matCellDef="let item"`. `onEdit(row)` ne k
 
 #### Korak G6: Formatiranje u templateu
 
-| Polje | Kako |
-|-------|------|
-| Cijena | `{{ item.shippingCost \| number:'1.1-1' }} KM` (jedna decimala) |
-| Datum slanja | `{{ item.shippedAtUtc \| date:'dd.MM.yyyy' }}` |
-| Datum dostave | `{{ item.deliveredAtUtc \| date:'dd.MM.yyyy' }}` ili `'-'` ako je null |
-| Status | ostavi postojeći HTML: `status-{{ item.status }}` + `{{ item.statusNaziv }}` |
+Samo `posiljke.component.html`. TypeScript se ne mijenja. Kolone, `displayedColumns` i status ostaju. Mijenjaš prikaz tri ćelije: cijena, datum slanja, datum dostave.
 
-Ako ostaviš sirovi ISO string, profesor vidi `2026-02-02T...` umjesto `02.02.2026`. `date` i `number` pipe su u `CommonModule`, koji lista već ima. Ne dodaješ import.
+API šalje cijenu kao broj (`12.5`) i datume kao ISO string (`2026-09-21T14:30:00Z`). Ako ih ispišeš bez pipe-a, profesor vidi `12.5` bez dogovorene decimale i `2026-09-21T14:30:00Z` umjesto `21.09.2026`. Starter je to krio: hardkod je već imao tekst `02.02.2026`. Čim lista čita API, taj tekst nestane.
 
-`number:'1.1-1'` znači najmanje jedna cifra prije tačke i tačno jedna iza. `8` postane `8.0`, `12.5` ostane `12.5`.
+`date` i `number` su pipe-ovi iz `CommonModule`. `SharedModule` ga eksportuje, `AdminModule` taj shared već uvozi. U `posiljke.component.ts` ne dodaješ import.
 
-Status se ne dira. Klasa `status-1` … `status-5` već postoji u SCSS-u, a tekst dolazi iz `statusNaziv`.
+##### Šta starter ispisuje
 
-U `posiljke.component.html` zamijeni tri ćelije:
+```html
+<ng-container matColumnDef="shippingCost">
+  <th mat-header-cell *matHeaderCellDef>Cijena dostave</th>
+  <td mat-cell *matCellDef="let item">
+    <span style="font-weight: 600; color: #4976b5">
+      {{ item.shippingCost }} KM
+    </span>
+  </td>
+</ng-container>
+
+<ng-container matColumnDef="shippedAtUtc">
+  <th mat-header-cell *matHeaderCellDef>Datum slanja</th>
+  <td mat-cell *matCellDef="let item">
+    {{ item.shippedAtUtc }}
+  </td>
+</ng-container>
+
+<ng-container matColumnDef="deliveredAtUtc">
+  <th mat-header-cell *matHeaderCellDef>Datum dostave</th>
+  <td mat-cell *matCellDef="let item">
+    {{ item.deliveredAtUtc || '-' }}
+  </td>
+</ng-container>
+```
+
+Status ne diraš. Ostaje ovako, uključujući klasu i `statusNaziv`:
 
 ```html
 <ng-container matColumnDef="status">
@@ -2564,7 +2584,15 @@ U `posiljke.component.html` zamijeni tri ćelije:
     </span>
   </td>
 </ng-container>
+```
 
+`item.status` je broj 1–5 i služi samo imenu CSS klase (`status-4`). Tekst na bedžu je `item.statusNaziv` s backenda (`Dostavljena`, `U dostavi`, …). Boje su već u `posiljke.component.scss` (`.status-1` … `.status-5`). Ako umjesto `statusNaziv` ispišeš `status`, na bedžu stoji `4`.
+
+##### Tri ćelije poslije G6
+
+Zamijeni cijenu i oba datuma. Status kontejner ostavi kakav jeste.
+
+```html
 <ng-container matColumnDef="shippingCost">
   <th mat-header-cell *matHeaderCellDef>Cijena dostave</th>
   <td mat-cell *matCellDef="let item">
@@ -2589,7 +2617,83 @@ U `posiljke.component.html` zamijeni tri ćelije:
 </ng-container>
 ```
 
-**Zašto ne `deliveredAtUtc || '-'` bez pipe-a:** kad datum postoji, izraz je truthy i Angular ispiše cijeli ISO string. Pipe prvo pretvori datum u `dd.MM.yyyy`. Ako je `null`, `date` vrati prazno, pa `|| '-'` pokaže crtu.
+`KM` je običan tekst poslije interpolacije, nije dio pipe-a. Imena kolona (`shippingCost`, `shippedAtUtc`, `deliveredAtUtc`) ostaju ista: pipe je samo unutar `{{ }}`.
+
+##### Šta `number:'1.1-1'` znači
+
+String formata ima tri broja. Tačke u `'1.1-1'` nisu decimalni znak. One dijele pravilo:
+
+| Dio | Značenje | Ovdje |
+|-----|----------|-------|
+| `1` prije tačke | najmanje cifara prije decimale | 1 |
+| `1` poslije tačke | najmanje decimala | 1 |
+| `1` poslije crtice | najviše decimala | 1 |
+
+`8` i `8.00` dobiju jednu decimalu. `12.54` se zaokruži na jednu.
+
+Aplikacija ima `LOCALE_ID` `bs-BA` u `app-module.ts`. Zbog toga je decimalni znak **zarez**, ne tačka:
+
+| Vrijednost s API-ja | Na ekranu |
+|---------------------|-----------|
+| `8` | `8,0 KM` |
+| `12.5` | `12,5 KM` |
+| `9.5` | `9,5 KM` |
+| `20` | `20,0 KM` |
+
+Seed: `SHP-00002` ima `shippingCost = 8` → `8,0 KM`. `SHP-00001` ima `12.5` → `12,5 KM`. Ako vidiš `12.5` s tačkom, pipe nije primijenjen i ćelija i dalje radi `{{ item.shippingCost }}`.
+
+##### Šta `date:'dd.MM.yyyy'` znači
+
+`dd` je dan na dvije cifre, `MM` mjesec na dvije, `yyyy` godina. Tačke između njih su slova formata, pa ostanu tačke i uz `bs-BA`. `2026-09-21T14:30:00Z` postane `21.09.2026`. Vrijeme se ne ispisuje.
+
+Datum slanja u seedu uvijek postoji, pa nema `|| '-'`:
+
+```html
+{{ item.shippedAtUtc | date:'dd.MM.yyyy' }}
+```
+
+##### Zašto zagrada oko datuma dostave
+
+Starter:
+
+```html
+{{ item.deliveredAtUtc || '-' }}
+```
+
+ISO string je truthy. Čim datum postoji, `||` uzme taj string i Angular ispiše `2026-09-21T14:30:00Z`. Crta se vidi samo kad je vrijednost `null`. Zato redovi bez dostave izgledaju dobro, a dostavljene pošiljke pokažu ISO.
+
+Pipe mora prvi da sredi vrijednost, pa tek onda `||`:
+
+```html
+{{ (item.deliveredAtUtc | date:'dd.MM.yyyy') || '-' }}
+```
+
+Zagrada je obavezna. `date` na `null` vrati prazno (`null`), a prazno je falsy, pa `|| '-'` pokaže crtu. Na pravi datum vrati `21.09.2026`, to je truthy, crta se ne doda.
+
+Dvije verzije koje izgledaju slično, a ne rade:
+
+```html
+{{ item.deliveredAtUtc || '-' | date:'dd.MM.yyyy' }}
+```
+
+Pipe veže jače od `||`, pa je ovo `item.deliveredAtUtc || ('-' | date)`. Ako datum postoji, pipe se uopšte ne pozove i ostane ISO.
+
+```html
+{{ item.deliveredAtUtc | date:'dd.MM.yyyy' || '-' }}
+```
+
+`||` je ovdje argument pipe-a, ne rezultat. `'dd.MM.yyyy'` je truthy, pa argument ostane taj format, a `null` i dalje ne postane crta.
+
+`SHP-00001` je dostavljena: oba datuma su popunjena. `SHP-00002` je u dostavi: `deliveredAtUtc` je `null`, ćelija mora biti `-`. Tačan dan zavisi od sata na računaru, jer seed radi `UtcNow.AddDays(...)`. Bitno je `dd.MM.yyyy`, ne stari hardkod `02.02.2026`. Ako i dalje vidiš baš `02.02.2026` na svih šest starter redova, lista i dalje čita lokalni `items` iz G2.
+
+##### Provjera
+
+Na `/admin/posiljke`, prva strana:
+
+1. Cijena je `12,5 KM` ili `8,0 KM`, jedna decimala, zarez.
+2. Datum slanja je `dd.MM.yyyy`, nema `T` ni `Z`.
+3. Dostavljena pošiljka ima oba datuma. Ostale imaju `-` u koloni dostave.
+4. Bedž i dalje ima boju i riječ (`Dostavljena`, `Kreirana`, …), ne broj statusa.
 
 #### Korak G7: Brisanje (logika na listi)
 
@@ -2603,7 +2707,7 @@ Dok J nije gotov, klik na kantu ne radi ništa. Lista se i dalje može testirati
 
 1. Uloguj se i otvori `/admin/posiljke`.
 2. Vidiš seed, ne 6 hardkodiranih redova iz startera. Seed ima **12** pošiljki, `SHP-00001` … `SHP-00012`.
-3. Cijena ima jednu decimalu (`12.5 KM`), datumi su `dd.MM.yyyy`, prazan datum dostave je `-`.
+3. Cijena ima jednu decimalu i zarez zbog `bs-BA` (`12,5 KM`), datumi su `dd.MM.yyyy`, prazan datum dostave je `-`.
 4. Sa `pageSize = 10` prva strana ima 10 redova, druga 2. Paginator piše ukupno 12.
 5. U Network tabu prvi poziv je `GET http://localhost:7001/OrderShipments?paging.page=1&paging.pageSize=10`. Nema `orderId`.
 6. Odaberi jednu narudžbu. `paging.page` se vraća na 1, a URL dobije `orderId`. Prva narudžba u seedu ima dvije pošiljke (`SHP-00001` i `SHP-00006`), pa se lista smanji.
