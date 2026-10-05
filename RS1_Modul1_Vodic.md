@@ -3452,17 +3452,13 @@ Ako bilo koji od dva poziva padne, `forkJoin` ne uđe u `next`. 404 na `GET /Ord
 
 #### Korak I3: Dodatna polja u odnosu na Add
 
-- `status` — `mat-select` s 5 opcija enuma (tekst: Kreirana, U skladištu, U dostavi, Dostavljena, Otkazana)
-- Datum slanja i datum dostave: **readonly** (običan tekst / disabled field). Korisnik ih ne unosi.
-- Info: „Ako status postane Dostavljena, datum dostave se postavlja automatski na serveru."
+Dva fajla. `initForm` iz I2 se ne mijenja: kontrola `status` već postoji. Ovdje je vežeš u HTML i dodaš niz za opcije. Datume ne stavljaš u `FormGroup`. Frontend ne računa datum dostave. Samo pošalje novi `status`. Handler iz faze D upiše `DeliveredAtUtc` ako status postane `Dostavljena`, a datum još ne postoji.
 
-Pravu logiku **ne radi frontend**. Frontend samo šalje novi status.
-
-`status` control već postoji u `initForm` iz koraka I2. Ovdje ga samo vežeš u HTML. Vrijednost opcije mora biti **broj** enuma (`1`…`5`), ne tekst. `UpdateOrderShipmentCommand.Status` i `IsInEnum()` očekuju taj broj.
-
-U klasu dodaj niz. `OrderShipmentStatusType` je već uvezen:
+U klasu, ispod `orders`, dodaj niz. `OrderShipmentStatusType` je već uvezen u I2.
 
 ```ts
+orders: ListOrdersQueryDto[] = [];
+
 statuses = [
   { value: OrderShipmentStatusType.Kreirana, label: 'Kreirana' },
   { value: OrderShipmentStatusType.USkladistu, label: 'U skladištu' },
@@ -3472,38 +3468,208 @@ statuses = [
 ];
 ```
 
-U `posiljka-edit.component.html`, poslije polja za narudžbu, a prije dugmadi:
+`value` je broj enuma, isti kao u F1:
+
+| `value` | Broj | `label` na ekranu |
+|---------|------|-------------------|
+| `Kreirana` | 1 | Kreirana |
+| `USkladistu` | 2 | U skladištu |
+| `UDostavi` | 3 | U dostavi |
+| `Dostavljena` | 4 | Dostavljena |
+| `Otkazana` | 5 | Otkazana |
+
+`[value]="s.value"` šalje `1`…`5`. `[value]="s.label"` šalje tekst `"Dostavljena"`. `UpdateOrderShipmentCommand.Status` i `IsInEnum()` očekuju broj. Tekst padne na 400.
+
+`patchValue` iz I2 već stavi `status: shipment.status`. Select pokaže label čija se `value` poklopi s tim brojem. Za `SHP-00003` to je `1`, pa na ekranu piše Kreirana.
+
+Zamijeni cijeli `posiljka-edit.component.html`. To je add forma iz H3, plus status, dva datuma i druga info rečenica. Naslov je „Uredi pošiljku". Rečenica s add-a („Status i datum slanja postavljaju se automatski.") ovdje ne stoji: status se bira, datum slanja se samo čita.
 
 ```html
-<mat-form-field appearance="outline" class="full-width">
-  <mat-label>Status</mat-label>
-  <mat-select formControlName="status">
-    <mat-option *ngFor="let s of statuses" [value]="s.value">
-      {{ s.label }}
-    </mat-option>
-  </mat-select>
-</mat-form-field>
+<div class="container">
+  <div class="header-card mat-elevation-z2">
+    <h1>Uredi pošiljku</h1>
+  </div>
 
-<p>Datum slanja: {{ model?.shippedAtUtc | date:'dd.MM.yyyy' }}</p>
-<p>Datum dostave: {{ (model?.deliveredAtUtc | date:'dd.MM.yyyy') || '-' }}</p>
+  <div class="form-card mat-elevation-z2">
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+      <div *ngIf="errorMessage" class="error-banner">
+        <mat-icon>error</mat-icon>
+        <span>{{ errorMessage }}</span>
+      </div>
 
-<p>Ako status postane Dostavljena, datum dostave se postavlja automatski na serveru.</p>
+      <div *ngIf="isLoading" class="loading-overlay">
+        <mat-spinner diameter="50"></mat-spinner>
+        <p>Snimanje...</p>
+      </div>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Broj pošiljke</mat-label>
+        <input matInput formControlName="shipmentNumber" maxlength="20" />
+        <mat-error *ngIf="hasError('shipmentNumber', 'required')">
+          Broj pošiljke je obavezan.
+        </mat-error>
+        <mat-error *ngIf="hasError('shipmentNumber', 'maxlength')">
+          Najviše 20 karaktera.
+        </mat-error>
+      </mat-form-field>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>Cijena dostave</mat-label>
+          <input
+            matInput
+            type="number"
+            formControlName="shippingCost"
+            step="0.1"
+          />
+          <span matTextPrefix>KM&nbsp;</span>
+          <mat-error *ngIf="hasError('shippingCost', 'required')">
+            Cijena je obavezna.
+          </mat-error>
+          <mat-error *ngIf="hasError('shippingCost', 'min')">
+            Cijena mora biti veća od 0.
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>Narudžba</mat-label>
+          <mat-select formControlName="orderId">
+            <mat-option *ngFor="let o of orders" [value]="o.id">
+              {{ o.referenceNumber }}
+            </mat-option>
+          </mat-select>
+          <mat-error *ngIf="hasError('orderId', 'required')">
+            Narudžba je obavezna.
+          </mat-error>
+        </mat-form-field>
+      </div>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Status</mat-label>
+        <mat-select formControlName="status">
+          <mat-option *ngFor="let s of statuses" [value]="s.value">
+            {{ s.label }}
+          </mat-option>
+        </mat-select>
+        <mat-error *ngIf="hasError('status', 'required')">
+          Status je obavezan.
+        </mat-error>
+      </mat-form-field>
+
+      <p>Datum slanja: {{ model?.shippedAtUtc | date:'dd.MM.yyyy' }}</p>
+      <p>Datum dostave: {{ (model?.deliveredAtUtc | date:'dd.MM.yyyy') || '-' }}</p>
+
+      <p>Ako status postane Dostavljena, datum dostave se postavlja automatski na serveru.</p>
+
+      <div class="form-actions">
+        <button type="button" mat-stroked-button (click)="onCancel()" [disabled]="isLoading">
+          <mat-icon>close</mat-icon>
+          Odustani
+        </button>
+
+        <button
+          type="submit"
+          mat-raised-button
+          color="primary"
+          [disabled]="form.invalid || isLoading"
+        >
+          <mat-icon>save</mat-icon>
+          Sačuvaj
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
 ```
 
-Datumi su običan tekst sa `model`, ne `formControlName`. Disabled polje bi ispalo iz `form.value`, a `getRawValue()` bi ga poslalo backendu koji te datume na update-u ne prima. Handler sam upiše `DeliveredAtUtc` kad status postane `Dostavljena` i stari datum još ne postoji. Dok korisnik sjedi na formi, crta na ekranu ostaje dok se ne vrati na listu.
+Datumi su običan tekst s `model`, ne `formControlName`. `model?.` jer je `model` prazan dok `forkJoin` ne završi. `date:'dd.MM.yyyy'` je isti pipe kao na listi. Zagrada oko datuma dostave radi isto što u G6: `null` postane `-`, postojeći datum postane `dd.MM.yyyy`, ne ISO.
+
+Disabled input za datum pravi dva problema. Isključena kontrola ispadne iz `form.value`. `getRawValue()` je vrati, pa bi je `save` poslao u JSON. `UpdateOrderShipmentCommand` nema `shippedAtUtc` ni `deliveredAtUtc`. Handler te datume ne čita iz tijela zahtjeva. Datum dostave upiše sam:
+
+```csharp
+if (request.Status == OrderShipmentStatusType.Dostavljena && entity.DeliveredAtUtc is null)
+{
+    entity.DeliveredAtUtc = DateTime.UtcNow;
+}
+```
+
+Dok stojiš na formi, `<p>` i dalje čita stari `model` s GET-a. Crta ostane i nakon što u selectu odabereš Dostavljena. Novi datum vidiš na listi, poslije `save` i povratka. `ShippedAtUtc` handler uopšte ne dira.
 
 #### Korak I4: `save()`
 
-`api.update(this.id, payload)` → toast → lista.
+U I2 je `save` prazan. Zamijeni ga. Dugme i dalje zove `onSubmit()`, a baza tek onda `save()`.
 
-Payload mora imati `status` (broj).
+U import iz modela dodaj `UpdateOrderShipmentCommand`:
 
-**Kako testirati:**
+```ts
+import {
+  GetOrderShipmentByIdQueryDto,
+  OrderShipmentStatusType,
+  UpdateOrderShipmentCommand
+} from '../../../../api-services/order-shipments/order-shipments-api.models';
+```
 
-- Klik olovke na `SHP-00003` (Kreirana)
-- Forma popunjena, status = 1
-- Promijeni u Dostavljena, sačuvaj
-- Na listi badge zelen, datum dostave više nije `-`
+```ts
+protected save(): void {
+  if (this.form.invalid || this.isLoading) {
+    return;
+  }
+
+  this.startLoading();
+
+  const command: UpdateOrderShipmentCommand = {
+    shipmentNumber: this.form.value.shipmentNumber,
+    shippingCost: Number(this.form.value.shippingCost),
+    orderId: Number(this.form.value.orderId),
+    status: Number(this.form.value.status)
+  };
+
+  this.api.update(this.id, command).subscribe({
+    next: () => {
+      this.stopLoading();
+      this.toaster.success('Pošiljka je sačuvana');
+      this.router.navigate(['/admin/posiljke']);
+    },
+    error: (err) => {
+      this.stopLoading();
+      this.toaster.error('Greška pri snimanju pošiljke');
+      console.error('Update shipment error:', err);
+    }
+  });
+}
+```
+
+`UpdateOrderShipmentCommand` ima četiri polja. `id` nije među njima: na backendu je `[JsonIgnore]`, a kontroler ga uzme iz rute. Zato je prvi argument `this.id`, a u objektu nema `id`.
+
+```ts
+update(id: number, payload: UpdateOrderShipmentCommand): Observable<void> {
+  return this.http.put<void>(`${this.baseUrl}/${id}`, payload);
+}
+```
+
+`Number(...)` je isti razlog kao na add-u. `type="number"` zna ostaviti string. `status` iz `mat-option` je već broj, `Number` ga samo učvrsti. Za `SHP-00003` prebačen u Dostavljena tijelo izgleda ovako. `shippingCost` je `15` iz seeda. `orderId` je id narudžbe koju select već pokazuje (`ORD-0003`), ne broj pošiljke. `status` je `4`.
+
+```json
+{
+  "shipmentNumber": "SHP-00003",
+  "shippingCost": 15,
+  "orderId": 3,
+  "status": 4
+}
+```
+
+Ako je u Networku `orderId` drugi broj, to je id te narudžbe u tvojoj bazi. Bitno je da je broj, i da je `status` `4`, ne `"Dostavljena"`.
+
+`form.value` ne smije sadržati datume. Zato ih nema u `fb.group`. Products uzme `getRawValue()` jer se cijela forma poklapa s commandom. Ovdje command gradiš ručno, četiri polja, da datum slučajno ne uđe u JSON.
+
+##### Provjera
+
+1. Olovka na `SHP-00003`. To je Kreirana, datum dostave prazan. URL `/admin/posiljke/{id}/edit`.
+2. Broj, cijena i narudžba su popunjeni. Status select piše Kreirana. Datum slanja je `dd.MM.yyyy`. Datum dostave je `-`.
+3. Status promijeni u Dostavljena. Crta na formi ostane. Sačuvaj.
+4. Network: `PUT /OrderShipments/{id}` sa `"status": 4`. Odgovor je 204, bez tijela. Toast, pa lista.
+5. Na listi taj red ima bedž Dostavljena (klasa `status-4`) i datum dostave koji više nije `-`.
+6. Otvori istu pošiljku ponovo. Datum dostave na formi sada postoji, jer novi GET vrati `deliveredAtUtc`. Ako sačuvaš opet bez promjene statusa, handler vidi da datum već postoji i ne prepiše ga.
 
 ---
 
