@@ -2122,11 +2122,30 @@ Ako se lista ne suzi: u requestu gledaj da `orderId` bude broj (`o.id`), ne teks
 
 #### Korak G4: Paginacija u HTML-u
 
-Ispod `</table>`, unutar istog `mat-elevation` diva, dodaj paginator. Komponenta je već u `SharedModule` (`selector: app-fit-paginator-bar`). Ne registruješ je i ne pišeš vlastiti paginator.
+Jedna linija u `posiljke.component.html`. TypeScript se u ovom koraku ne mijenja: `loadPagedData`, `pageSize = 10` i `handlePageResult` su već iz G2, filter iz G3.
 
-`[vm]="this"` radi jer `PosiljkeComponent` nasljeđuje `BaseListPagedComponent`. Bar čita `request.paging`, `totalItems`, `totalPages` i `isLoading`, a klikovi zovu `goToPage`, `nextPage`, `prevPage` i `changePageSize`. Te metode već postoje u bazi i same zovu `loadPagedData()`.
+Ne praviš paginator, ne dodaješ `mat-paginator` i ne registruješ ništa u `AdminModule`. Komponenta `FitPaginatorBarComponent` je već deklarisana i eksportovana iz `SharedModule`, a admin modul taj shared već uvozi. Zato selector `app-fit-paginator-bar` radi u šablonu pošiljki.
 
-U `posiljke.component.html` kraj tabele treba izgledati ovako:
+Products na istom mjestu ima istu liniju. Kopiraš tag, ne cijeli HTML proizvoda.
+
+##### Gdje stoji u starteru
+
+Tabela je unutar kartice. Paginator ide u tu karticu, odmah ispod `</table>`, prije `</div>` koji zatvara `mat-elevation-z8`.
+
+Starter, kraj fajla:
+
+```html
+      <tr class="mat-row" *matNoDataRow>
+        <td class="mat-cell" colspan="7">
+          Nema pošiljki.
+        </td>
+      </tr>
+    </table>
+  </div>
+</div>
+```
+
+Poslije G4:
 
 ```html
       <tr class="mat-row" *matNoDataRow>
@@ -2141,9 +2160,165 @@ U `posiljke.component.html` kraj tabele treba izgledati ovako:
 </div>
 ```
 
-Paginator mora ostati **unutar** `<div class="mat-elevation-z8">`, odmah poslije `</table>`, a **prije** zatvaranja tog diva. Ako ga staviš ispod cijelog `mat-elevation` diva, i dalje radi, ali ne sjedi u kartici kao kod Products.
+Otvaranje te kartice, da vidiš par:
 
-Bar se ne vidi dok je `totalItems` 0. Sa `pageSize = 10` iz koraka G2 i 12 seed pošiljki vidiš „Stranica 1 od 2" i ukupno 12 zapisa. Klik na sljedeću stranu mijenja `paging.page` i ponovo zove listu.
+```html
+  <div class="mat-elevation-z8">
+    <table mat-table [dataSource]="items">
+```
+
+Redoslijed zatvaranja:
+
+```
+</table>
+<app-fit-paginator-bar [vm]="this" />
+</div>   ← kraj mat-elevation-z8
+</div>   ← kraj .container
+```
+
+Ako bar staviš ispod cijelog `mat-elevation-z8`, klikovi i dalje rade, ali traka ispadne iz kartice. Kod Products je unutra. `colspan="7"` na praznom redu ostaje: sedam kolona je već u `displayedColumns`.
+
+##### Šta je `[vm]="this"`
+
+Bar ne zna za pošiljke. Prima bilo koju listu koja nasljeđuje `BaseListPagedComponent` i zove je `vm`.
+
+```ts
+export class FitPaginatorBarComponent {
+  @Input({ required: true }) vm!: BaseListPagedComponent<any, any>;
+}
+```
+
+`[vm]="this"` predaje **ovu** komponentu, `PosiljkeComponent`. Ona nasljeđuje tu bazu, pa input prihvata `this`. Nema polja koje se zove `vm`. `[vm]="vm"` je prazno i traka nema šta da čita.
+
+`@Input({ required: true })` znači da tag bez `[vm]` ne kompajlira.
+
+##### Šta traka čita i što zove
+
+Cijeli `fit-paginator-bar.component.html`. Ovaj fajl ne mijenjaš. Ovde vidiš svaki izraz koji tvoja klasa mora imati.
+
+```html
+<div class="paginator-bar" *ngIf="vm.totalItems > 0">
+  <div class="paginator-container">
+    <div class="paginator-info">
+      <mat-icon class="info-icon">info_outline</mat-icon>
+      <span class="info-text">
+        Stranica <strong>{{ vm.request.paging.page }}</strong> od
+        <strong>{{ vm.totalPages || 1 }}</strong>
+      </span>
+      <span class="info-divider">•</span>
+      <span class="info-total">
+        Ukupno: <strong>{{ vm.totalItems }}</strong> zapisa
+      </span>
+    </div>
+
+    <div class="paginator-actions">
+      <div class="page-size-selector">
+        <span class="selector-label">Po stranici:</span>
+        <mat-form-field appearance="fill" class="page-size-field">
+          <mat-select
+            [value]="vm.request.paging.pageSize"
+            (selectionChange)="vm.changePageSize($event.value)"
+            [disabled]="vm.isLoading"
+          >
+            <mat-option [value]="5">5</mat-option>
+            <mat-option [value]="10">10</mat-option>
+            <mat-option [value]="20">20</mat-option>
+            <mat-option [value]="50">50</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="nav-buttons">
+        <button
+          mat-stroked-button
+          class="nav-btn prev-btn"
+          (click)="vm.prevPage()"
+          [disabled]="vm.request.paging.page <= 1 || vm.isLoading"
+        >
+          <mat-icon>chevron_left</mat-icon>
+          <span>Prethodna</span>
+        </button>
+
+        <div class="page-indicator">
+          {{ vm.request.paging.page }}
+        </div>
+
+        <button
+          mat-stroked-button
+          class="nav-btn next-btn"
+          (click)="vm.nextPage()"
+          [disabled]="(vm.totalPages && vm.request.paging.page >= vm.totalPages) || vm.isLoading"
+        >
+          <span>Sljedeća</span>
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+| Izraz na traci | Odakle na tvojoj klasi |
+|----------------|------------------------|
+| `vm.totalItems` | `handlePageResult` upiše `result.totalItems` |
+| `vm.totalPages` | `handlePageResult` upiše `result.totalPages` |
+| `vm.request.paging.page` | `PageRequest`, kreće od 1 |
+| `vm.request.paging.pageSize` | u konstruktoru si stavila 10 |
+| `vm.isLoading` | `startLoading` / `stopLoading` na `BaseComponent` |
+| `vm.nextPage()` / `vm.prevPage()` / `vm.changePageSize()` | već napisane u `BaseListPagedComponent` |
+
+`*ngIf="vm.totalItems > 0"` sakrije cijelu traku dok je ukupno 0. Prije odgovora API-ja `totalItems` jeste 0, pa se traka pojavi tek kad `handlePageResult` dobije broj. Prazan filter („nema pošiljki") isto sakrije traku. To nije greška u HTML-u.
+
+Brojeve ne računaš u šablonu. `handlePageResult` iz G2 ih prepiše s odgovora:
+
+```ts
+protected handlePageResult(result: PageResult<TItem>) {
+  this.items = result.items;
+  this.totalItems = result.totalItems;
+  this.totalPages = result.totalPages;
+}
+```
+
+Seed ima 12 pošiljki, `pageSize` je 10. Backend vrati `totalItems = 12`, `totalPages = 2`, a `items` ima 10 redova. Traka piše **Stranica 1 od 2** i **Ukupno: 12 zapisa**.
+
+Ako si zaboravila `this.request.paging.pageSize = 10`, default je 1000. Svih 12 stane na stranu 1, `totalPages` je 1, „Sljedeća" je ugašena. Traka se ipak vidi, jer je `totalItems` 12. Izgleda kao da paginacija ne radi.
+
+##### Klik ne pišeš ti
+
+Metode su u bazi. Svaka na kraju zove tvoj `loadPagedData()`, a on pošalje `this.request`.
+
+```ts
+goToPage(page: number): void {
+  if (page < 1 || (this.totalPages && page > this.totalPages)) return;
+  this.paging.page = page;
+  this.loadPagedData();
+}
+
+nextPage() { this.goToPage(this.paging.page + 1); }
+prevPage() { this.goToPage(this.paging.page - 1); }
+
+changePageSize(size: number) {
+  this.paging.pageSize = size;
+  this.paging.page = 1;
+  this.loadPagedData();
+}
+```
+
+`get paging()` vraća `this.request.paging`, pa `this.paging.page = 2` i `this.request.paging.page = 2` diraju isto polje.
+
+„Sljedeća" na strani 1 pozove `nextPage()` → `goToPage(2)`. Uslov prolazi jer je 2 manje ili jednako `totalPages`. Zatim:
+
+```
+GET http://localhost:7001/OrderShipments?paging.page=2&paging.pageSize=10
+```
+
+Tabela pokaže preostala 2 reda (`SHP-00011` i `SHP-00012` ako nema filtera). „Sljedeća" se ugasi jer je `page >= totalPages`. „Prethodna" zove `goToPage(1)` i vrati prvih 10.
+
+„Po stranici: 20" zove `changePageSize(20)`. Ona stavi `pageSize = 20` i **vrati `page` na 1**, pa opet učita listu. Bez tog reset-a ostala bi na strani 2, a sa 20 redova strana 2 ne postoji i tabela bi bila prazna. Isti razlog kao `page = 1` u filteru iz G3.
+
+Dok je `isLoading` true, oba dugmeta i select veličine su `[disabled]`. `startLoading()` na početku `loadPagedData` to upali, `stopLoading()` ugasi.
+
+Filter iz G3 i ova traka dijele isti `request`. Odabir `ORD-0001` vrati 2 pošiljke, `totalPages` postane 1, „Sljedeća" se ugasi. „Sve narudžbe" vrati 12 i opet imaš dvije strane. Ništa novo u TS-u: `loadPagedData` već šalje cijeli request.
 
 #### Korak G5: Akcije
 
