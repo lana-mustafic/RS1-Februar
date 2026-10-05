@@ -2815,19 +2815,47 @@ Ako je tabela prazna, a u konzoli nema greške: provjeri da u konstruktoru stoji
 
 ### FAZA H — Dodavanje (`PosiljkaAddComponent`)
 
-Starter HTML je samo `<p>posiljka-add works!</p>`. TS je prazna klasa. SCSS fajl **ne postoji**, a `styleUrl` ga već zove — **kopiraj** `products-add.component.scss` u `posiljka-add.component.scss` (isti izgled form-card). Dizajn ne moraš raditi ručno.
+Ruta `/admin/posiljke/add` i klasa u `AdminModule` već postoje. Ne dodaješ rutu i ne registruješ komponentu.
 
-Kopiraj cijeli fajl, ne piši CSS:
+Tri fajla u `src/app/modules/admin/posiljke/posiljka-add/`:
+
+| Fajl | Starter | Šta radiš |
+|------|---------|-----------|
+| `posiljka-add.component.ts` | prazna klasa | forma, `save`, dropdown narudžbi |
+| `posiljka-add.component.html` | `<p>posiljka-add works!</p>` | forma |
+| `posiljka-add.component.scss` | **fajl ne postoji** | kopija products SCSS-a |
+
+`styleUrl` u starteru već pokazuje na scss koji nije na disku:
+
+```ts
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-posiljka-add',
+  standalone: false,
+  templateUrl: './posiljka-add.component.html',
+  styleUrl: './posiljka-add.component.scss'
+})
+export class PosiljkaAddComponent {
+
+}
+```
+
+```html
+<p>posiljka-add works!</p>
+```
+
+Dok scss fajla nema, `ng serve` padne čim otvoriš add, iako je TS prazan. Prvo kopiraj cijeli fajl, ne piši CSS:
 
 | Od | U |
 |----|---|
 | `src/app/modules/admin/catalogs/products/products-add/products-add.component.scss` | `src/app/modules/admin/posiljke/posiljka-add/posiljka-add.component.scss` |
 
-`styleUrl: './posiljka-add.component.scss'` u starteru već pokazuje na taj fajl. Dok ga nema, `ng serve` padne na add ruti. Ruta `/admin/posiljke/add` i komponenta u modulu već postoje. Ne dodaješ rutu.
+Klase koje HTML ispod koristi već su u toj kopiji: `.container`, `.header-card`, `.form-card`, `.full-width`, `.half-width`, `.form-row`, `.form-actions`, `.error-banner`, `.loading-overlay`. Naslov u kopiranom SCSS-u ima ikonu korpe (`add_shopping_cart`), jer je fajl od proizvoda. Na ispitu je ostavi. Ne crtaš novi dizajn.
 
 #### Korak H1: Uzor
 
-Otvori ova tri fajla i gledaj obrazac, ne polja proizvoda:
+Otvori Products i gledaj obrazac, ne polja proizvoda.
 
 | Fajl | Šta uzmeš |
 |------|-----------|
@@ -2835,11 +2863,37 @@ Otvori ova tri fajla i gledaj obrazac, ne polja proizvoda:
 | `products-add.component.html` | `form-card`, `[formGroup]`, `mat-form-field`, Sačuvaj / Odustani |
 | `product-form.service.ts` | `FormBuilder` + `Validators`. Servis je `providers: [ProductFormService]` na komponenti, nema `providedIn: 'root'` |
 
-Možeš formu praviti **u komponenti** (brže na ispitu) ili izdvojiti `PosiljkaFormService` ako želiš share s editom. Oba su OK. Products koristi form servis jer add i edit dijele ista polja. Kod pošiljki edit ima **dodatni status**, pa forma nije 100% ista — možeš dva `FormGroup`-a ili jedan servis s parametrom `isEdit`.
+Products drži `FormGroup` u servisu jer add i edit dijele ista polja. Pošiljka na edit ima još i `status`, pa forma nije ista. Na ispitu formu praviš u `PosiljkaAddComponent`. Edit u fazi I dobije svoj `FormGroup`. Ne praviš `PosiljkaFormService`.
 
-Na ispitu radi formu u `PosiljkaAddComponent`. Edit u fazi I dobije svoj `FormGroup` s poljem `status`. Ne troši vrijeme na servis.
+Komad Products-a koji prepisuješ, s drugim imenima:
 
-Ako ipak hoćeš jedan servis, fajl `src/app/modules/admin/posiljke/posiljka-add/posiljka-form.service.ts`. `createForm(isEdit)` doda status samo na edit:
+```ts
+export class ProductsAddComponent
+  extends BaseFormComponent<GetProductByIdQueryDto>
+  implements OnInit {
+
+  ngOnInit(): void {
+    this.initForm(false);
+    this.loadCategories();
+  }
+
+  protected loadData(): void {
+  }
+
+  protected override initForm(isEdit: boolean): void {
+    super.initForm(isEdit);
+    this.form = this.formService.createProductForm();
+  }
+
+  onCancel(): void {
+    this.router.navigate(['/admin/products']);
+  }
+}
+```
+
+Kod tebe `createProductForm()` ne postoji. `this.form = this.fb.group({ ... })` stoji na tom mjestu. `providers: [ProductFormService]` ne kopiraš.
+
+Ako ipak hoćeš jedan servis za add i edit, fajl je `src/app/modules/admin/posiljke/posiljka-add/posiljka-form.service.ts`. `createForm(isEdit)` doda status samo na edit. H2 i H3 ovo ne koriste.
 
 ```ts
 import { Injectable, inject } from '@angular/core';
@@ -2866,37 +2920,34 @@ export class PosiljkaFormService {
 }
 ```
 
-Servis stavi u `providers` na add i na edit komponenti, kao `ProductFormService`. Bez toga `inject(PosiljkaFormService)` baci `NullInjectorError`. Koraci H2 i H3 pišu formu u komponenti, bez ovog servisa.
+`@Injectable()` nema `providedIn: 'root'`. Servis mora u `providers` na add i na edit:
+
+```ts
+@Component({
+  selector: 'app-posiljka-add',
+  providers: [PosiljkaFormService]
+})
+```
+
+Bez toga `inject(PosiljkaFormService)` baci `NullInjectorError`. Dalje u fazi H servisa nema.
 
 #### Korak H2: TS obrazac
 
-1. `extends BaseFormComponent<GetOrderShipmentByIdQueryDto>`
-2. `ngOnInit`: `this.initForm(false)` + učitaj narudžbe za dropdown (`OrdersApiService` + `largePaging`)
-3. `loadData()` prazan (nije edit)
-4. `initForm`: napravi `FormGroup` s poljima:
-
-| Control | Validatori |
-|---------|------------|
-| `shipmentNumber` | `required`, `maxLength(20)` |
-| `shippingCost` | `required`, `min(0.01)` |
-| `orderId` | `required` |
-
-**Nema** `status`, **nema** datuma — backend ih postavlja. U HTML stavi info tekst: „Status i datum slanja postavljaju se automatski." To nije form control. Tekst ide u korak H3.
-
-5. `save()`:
-   - ako `form.invalid` ili `isLoading` → return
-   - sastavi `CreateOrderShipmentCommand` iz `form.value`
-   - `api.create(command)`
-   - uspjeh: `toaster.success(...)` + `router.navigate(['/admin/posiljke'])`
-   - greška: `toaster.error(...)`
-
-6. `onCancel()` → nazad na listu
-
 Fajl: `src/app/modules/admin/posiljke/posiljka-add/posiljka-add.component.ts`
 
-Importi su `../../../../` (četiri nivoa do `app`). `products-add` je jedan folder dublje, zato tamo piše pet.
+Importi su `../../../../`, četiri nivoa do `app`. `products-add` je u `catalogs/products/products-add`, jedan folder dublje, zato tamo piše `../../../../../`.
 
-`initForm(false)` na bazi samo postavi `isEditMode`. Formu praviš u `override`, pa zoveš `super.initForm(isEdit)`. Za `false` baza **ne** zove `loadData()`.
+```
+src/app/modules/admin/posiljke/posiljka-add/posiljka-add.component.ts
+        ../../../../   → app
+
+src/app/modules/admin/catalogs/products/products-add/products-add.component.ts
+        ../../../../../ → app
+```
+
+Ako kopiraš import iz Products i ostaviš pet `../`, TypeScript ne nađe fajl.
+
+Cijela klasa:
 
 ```ts
 import { Component, inject, OnInit } from '@angular/core';
@@ -2992,31 +3043,182 @@ export class PosiljkaAddComponent
 }
 ```
 
-**Zašto `Number(...)`:** `input type="number"` u reactive formi često drži string. Backend `decimal` i `int` očekuju broj u JSON-u. `Number` to sredi prije `POST`.
+`GetOrderShipmentByIdQueryDto` je generički tip baze. Na add se ne učitava. Edit u fazi I u taj tip smjesti `getById`. Zato je `loadData` prazan, ali mora postojati: u bazi je `abstract`.
 
-**Zašto nema statusa u commandu:** `CreateOrderShipmentCommand` ima samo broj, cijenu i `orderId`. Handler sam stavlja `Kreirana`, `ShippedAtUtc = UtcNow` i `DeliveredAtUtc = null`.
+`initForm` u bazi ne pravi kontrolu. Samo zapamti režim i, ako je edit, učita podatke:
 
-**Dugme Sačuvaj** u HTML-u zove `onSubmit()`, ne `save()`. `onSubmit` u bazi radi `markAllAsTouched()` i odustane ako je forma nevalidna, pa tek onda zove `save()`.
+```ts
+protected initForm(isEdit: boolean): void {
+  this.isEditMode = isEdit;
+
+  if (isEdit) {
+    this.loadData();
+  }
+}
+```
+
+Zato je tvoja metoda `override`: prvo `super.initForm(isEdit)` (za `false` to samo stavi `isEditMode = false` i ne zove `loadData`), zatim `this.form = this.fb.group(...)`. Šablon veže `[formGroup]="form"`. Ako `initForm` ne stigne prije prikaza, Angular prijavi da je `form` undefined. Zato je prva linija u `ngOnInit` baš `this.initForm(false)`, pa tek `loadOrders()`.
+
+Tri kontrole, ništa više:
+
+| Control | Početna vrijednost | Validatori | Zašto |
+|---------|--------------------|------------|-------|
+| `shipmentNumber` | `''` | `required`, `maxLength(20)` | entitet, `Constraints.ShipmentNumberMaxLength = 20` |
+| `shippingCost` | `null` | `required`, `min(0.01)` | cijena mora biti veća od 0 |
+| `orderId` | `null` | `required` | id narudžbe, broj |
+
+Nema `status`, nema `shippedAtUtc`, nema `deliveredAtUtc`. To nisu polja koja korisnik kuca. `CreateOrderShipmentCommand` iz F1 ima samo tri polja:
+
+```ts
+export interface CreateOrderShipmentCommand {
+  shipmentNumber: string;
+  shippingCost: number;
+  orderId: number;
+}
+```
+
+Handler iz faze C sam upiše ostalo: status `Kreirana` (1), `ShippedAtUtc = DateTime.UtcNow`, `DeliveredAtUtc = null`. Info rečenica u HTML-u to kaže korisniku. Nije `formControlName`.
+
+`Number(...)` pretvori vrijednost inputa u broj prije `POST`. `type="number"` u reactive formi često ostavi string `"12.5"`. Backend `decimal` i `int` u JSON-u očekuju broj. `Number("12.5")` je `12.5`, `Number("1")` je `1`.
+
+`save` se ne veže na dugme. Dugme zove `onSubmit` iz baze, a on tek onda `save`:
+
+```ts
+onSubmit(): void {
+  this.form.markAllAsTouched();
+
+  if (this.form.invalid) {
+    return;
+  }
+
+  this.save();
+}
+```
+
+`markAllAsTouched()` upali `mat-error` na praznim poljima. `save` i dalje ima `if (this.form.invalid || this.isLoading) return`, da dvostruki klik ne pošalje drugi `POST` dok prvi traje.
+
+`loadOrders` je isti poziv kao dropdown na listi. `largePaging` je stranica 1 i 100 redova. `res.items` puni `orders`. Greška ovdje ne gasi formu: toast, a polja i dalje stoje. U Networku tražiš `GET /Orders?paging.page=1&paging.pageSize=100`.
+
+`ReactiveFormsModule` je već eksportovan iz `SharedModule`. `formGroup` i `formControlName` rade bez importa u ovoj komponenti. Ona nije standalone.
 
 #### Korak H3: HTML obrazac
 
-Kopiraj strukturu `products-add.component.html`:
+Zamijeni cijeli `posiljka-add.component.html`. Struktura je iz `products-add.component.html`. Tekst je bosanski, kao na listi. Ne kopiraš `{{ 'PRODUCTS....' | translate }}`: ti ključevi su za proizvode.
 
-- `[formGroup]="form"` `(ngSubmit)="onSubmit()"`
-- `mat-form-field` + `input` za broj pošiljke
-- `input type="number" step="0.1"` za cijenu (jedna decimala)
-- `mat-select` za narudžbu (`*ngFor` po `orders`, `[value]="o.id"`, tekst `o.referenceNumber`)
-- dugme Sačuvaj: `[disabled]="form.invalid || isLoading"`
-- dugme Odustani
+`formControlName` mora se zvati isto kao ključ u `fb.group`. `[value]` na narudžbi je `o.id`, tekst je `o.referenceNumber`. Isto pravilo kao filter u G3.
 
-`onSubmit()` već postoji u `BaseFormComponent` — on `markAllAsTouched` pa zove `save()`.
+```html
+<div class="container">
+  <div class="header-card mat-elevation-z2">
+    <h1>Nova pošiljka</h1>
+  </div>
 
-**Kako testirati:**
+  <div class="form-card mat-elevation-z2">
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+      <div *ngIf="errorMessage" class="error-banner">
+        <mat-icon>error</mat-icon>
+        <span>{{ errorMessage }}</span>
+      </div>
 
-- Otvori Nova pošiljka — dropdown narudžbi nije prazan
-- Prazna forma → Sačuvaj disabled
-- Popuni, sačuvaj → toast + lista + novi red
-- Swagger GET: status 1, datum slanja danas
+      <div *ngIf="isLoading" class="loading-overlay">
+        <mat-spinner diameter="50"></mat-spinner>
+        <p>Snimanje...</p>
+      </div>
+
+      <p>Status i datum slanja postavljaju se automatski.</p>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Broj pošiljke</mat-label>
+        <input matInput formControlName="shipmentNumber" maxlength="20" />
+        <mat-error *ngIf="hasError('shipmentNumber', 'required')">
+          Broj pošiljke je obavezan.
+        </mat-error>
+        <mat-error *ngIf="hasError('shipmentNumber', 'maxlength')">
+          Najviše 20 karaktera.
+        </mat-error>
+      </mat-form-field>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>Cijena dostave</mat-label>
+          <input
+            matInput
+            type="number"
+            formControlName="shippingCost"
+            step="0.1"
+          />
+          <span matTextPrefix>KM&nbsp;</span>
+          <mat-error *ngIf="hasError('shippingCost', 'required')">
+            Cijena je obavezna.
+          </mat-error>
+          <mat-error *ngIf="hasError('shippingCost', 'min')">
+            Cijena mora biti veća od 0.
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>Narudžba</mat-label>
+          <mat-select formControlName="orderId">
+            <mat-option *ngFor="let o of orders" [value]="o.id">
+              {{ o.referenceNumber }}
+            </mat-option>
+          </mat-select>
+          <mat-error *ngIf="hasError('orderId', 'required')">
+            Narudžba je obavezna.
+          </mat-error>
+        </mat-form-field>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" mat-stroked-button (click)="onCancel()" [disabled]="isLoading">
+          <mat-icon>close</mat-icon>
+          Odustani
+        </button>
+
+        <button
+          type="submit"
+          mat-raised-button
+          color="primary"
+          [disabled]="form.invalid || isLoading"
+        >
+          <mat-icon>save</mat-icon>
+          Sačuvaj
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+```
+
+`(ngSubmit)="onSubmit()"`. Ne `save()`. `onSubmit` je na bazi, nije je potrebno pisati u komponenti.
+
+Sačuvaj je `type="submit"`. Odustani je `type="button"`. Da je i Odustani `submit`, klik bi prošao kroz `onSubmit` i pokušao `POST`.
+
+`[disabled]="form.invalid || isLoading"` drži Sačuvaj ugašen dok je bilo koje polje prazno, cijena manja od `0.01`, ili dok traje snimanje. `hasError` vraća true tek kad je polje dirnuto (`touched`) i ima tu grešku. Ključ za `Validators.maxLength` je `maxlength`, malim slovima. Ključ za `Validators.min` je `min`.
+
+`step="0.1"` je korak strelice na inputu, jedna decimala. Validator i dalje pušta `0.1`, `0.5`, `12.5`. Nula ne prolazi.
+
+##### Provjera
+
+1. `ng serve` prođe na `/admin/posiljke/add`. Ako padne na `posiljka-add.component.scss`, kopija SCSS-a nije na toj putanji.
+2. U Networku je `GET http://localhost:7001/Orders?paging.page=1&paging.pageSize=100`. Select nije prazan: `ORD-0001` … `ORD-0006`.
+3. Prazna forma: Sačuvaj je disabled. Nema `POST`.
+4. Unesi broj kojeg nema u seedu, npr. `SHP-00999`, cijenu `12.5`, narudžbu `ORD-0001`. Sačuvaj.
+5. `POST http://localhost:7001/OrderShipments` s tijelom brojeva, ne stringova:
+
+```json
+{
+  "shipmentNumber": "SHP-00999",
+  "shippingCost": 12.5,
+  "orderId": 1
+}
+```
+
+6. Toast „Pošiljka je sačuvana", URL `/admin/posiljke`, novi red na listi. Cijena na listi izgleda `12,5 KM`.
+7. Swagger `GET /OrderShipments/{id}`: `status` je `1`, `shippedAtUtc` je danas, `deliveredAtUtc` je `null`. To je upisao handler, ne forma.
+8. Odustani s praznom ili punom formom vrati na listu i ne šalje `POST`.
+
+Ako je `POST` 400, pogledaj tijelo: `shippingCost` ili `orderId` su i dalje string, ili je broj duži od 20 znakova. Ako je 404, `orderId` ne postoji u bazi. Ako select ima `ORD-0001` kao vrijednost umjesto broja, `[value]` je `o.referenceNumber` umjesto `o.id`.
 
 ---
 
