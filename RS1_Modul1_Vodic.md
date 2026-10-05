@@ -1452,29 +1452,160 @@ export class OrderShipmentsApiService {
 
 #### Korak G2: TS — ukloni hardkod
 
-1. Obriši niz `items = [...]` s komentarom „obrisati ovo".
-2. Klasa treba naslijediti:
+Jedan fajl: `src/app/modules/admin/posiljke/posiljke.component.ts`.
+
+HTML u ovom koraku ne diraš. Tabela već čita `items`:
+
+```html
+<table mat-table [dataSource]="items">
+```
+
+Starter taj niz drži u samoj komponenti, šest izmišljenih redova. Cilj koraka: obrišeš taj niz, klasa naslijedi `BaseListPagedComponent`, a `loadPagedData()` napuni `items` iz API-ja. Filter, paginator u HTML-u i navigacija dolaze u G3, G4 i G5. Ovdje samo lista.
+
+##### Starter, cijeli fajl
+
+Ovo zatičeš. `ngOnInit` i `onCreate` su prazni. Tabela prikazuje ovih šest objekata i nikad ne zove backend.
+
+```ts
+import { Component, inject, OnInit } from '@angular/core';
+
+@Component({
+  selector: 'app-posiljke',
+  standalone: false,
+  templateUrl: './posiljke.component.html',
+  styleUrl: './posiljke.component.scss'
+})
+export class PosiljkeComponent implements OnInit {
+
+  // hardkodirano - obrisati ovo
+  items = [
+    { id: 1, shipmentNumber: 'SHP-00001', orderReferenceNumber: 'ORD-0001', status: 4, statusNaziv: 'Dostavljena', shippingCost: 12.50, shippedAtUtc: '02.02.2026', deliveredAtUtc: '04.02.2026' },
+    { id: 2, shipmentNumber: 'SHP-00002', orderReferenceNumber: 'ORD-0002', status: 3, statusNaziv: 'U dostavi',   shippingCost: 8.00,  shippedAtUtc: '07.02.2026', deliveredAtUtc: null },
+    { id: 3, shipmentNumber: 'SHP-00003', orderReferenceNumber: 'ORD-0003', status: 1, statusNaziv: 'Kreirana',    shippingCost: 15.00, shippedAtUtc: '12.02.2026', deliveredAtUtc: null },
+    { id: 4, shipmentNumber: 'SHP-00004', orderReferenceNumber: 'ORD-0004', status: 2, statusNaziv: 'U skladištu', shippingCost: 10.00, shippedAtUtc: '15.02.2026', deliveredAtUtc: null },
+    { id: 5, shipmentNumber: 'SHP-00005', orderReferenceNumber: 'ORD-0005', status: 5, statusNaziv: 'Otkazana',    shippingCost: 9.50,  shippedAtUtc: '10.02.2026', deliveredAtUtc: null },
+    { id: 6, shipmentNumber: 'SHP-00006', orderReferenceNumber: 'ORD-0001', status: 4, statusNaziv: 'Dostavljena', shippingCost: 20.00, shippedAtUtc: '03.02.2026', deliveredAtUtc: '05.02.2026' },
+  ];
+
+  displayedColumns: string[] = [
+    'shipmentNumber',
+    'orderReferenceNumber',
+    'status',
+    'shippingCost',
+    'shippedAtUtc',
+    'deliveredAtUtc',
+    'actions'
+  ];
+
+  ngOnInit(): void {
+  }
+
+  onCreate(): void {
+  }
+}
+```
+
+`inject` je uvezen, a niko ga još ne koristi. To ostaje: u novom fajlu `inject` vuče API servis i toaster.
+
+##### Šta brišeš
+
+Cijeli blok od komentara do zatvorene uglaste zagrade, uključujući komentar:
+
+```ts
+  // hardkodirano - obrisati ovo
+  items = [
+    { id: 1, shipmentNumber: 'SHP-00001', /* ... */ },
+    // ... ostalih pet objekata
+  ];
+```
+
+`items` poslije ovog koraka **nigdje ne pišeš**. Ni `items = []`, ni `items: ListOrderShipmentsQueryDto[] = []`. Prazan lokalni niz je ista greška kao hardkod: Angular vidi tvoje polje, a polje iz baze ostaje skriveno.
+
+`displayedColumns` ostaje. Imena se poklapaju s `matColumnDef` u HTML-u (`shipmentNumber`, `orderReferenceNumber`, `status`, `shippingCost`, `shippedAtUtc`, `deliveredAtUtc`, `actions`). Ako preimenuješ kolonu, tabela izgubi tu kolonu.
+
+##### Zašto lokalni `items` sakrije bazu
+
+`BaseListComponent` već ima niz. Ti ga nasljeđuješ, ne deklariraš ponovo.
+
+```ts
+export abstract class BaseListComponent<TItem> extends BaseComponent {
+  items: TItem[] = [];
+
+  protected abstract loadData(): void;
+
+  protected initList(): void {
+    this.loadData();
+  }
+}
+```
+
+Isto ime u djetetu sakrije isto ime u roditelju. `handlePageResult` upisuje u **bazni** `items`. Tabela čita `items` na komponenti. Ako tvoj lokalni niz i dalje postoji, tabela čita njega, a API odgovor ode u polje koje HTML ne vidi. Ekran ostane na šest starter redova (`SHP-00001` … `SHP-00006`, datumi već upisani kao `02.02.2026`).
+
+##### Klasa
+
+Starter:
+
+```ts
+export class PosiljkeComponent implements OnInit {
+```
+
+Poslije G2:
 
 ```ts
 export class PosiljkeComponent
   extends BaseListPagedComponent<ListOrderShipmentsQueryDto, ListOrderShipmentsRequest>
-  implements OnInit
+  implements OnInit {
 ```
 
-3. U konstruktoru: `this.request = new ListOrderShipmentsRequest();`
-   - Po želji: `this.request.paging.pageSize = 10;` da se paginacija vidi (seed ima 12 zapisa). Nije obavezno, ali je pametno na ispitu.
-4. `ngOnInit`: `this.initList();` — to zove `loadPagedData()`.
-5. Implementiraj `loadPagedData()` kao Products: `startLoading()`, `api.list(this.request).subscribe`, u `next` → `handlePageResult(response)` + `stopLoading()`, u `error` → `stopLoading(...)` + toast.
+Dva generička tipa, redom:
 
-`displayedColumns` već postoji i odgovara tabeli. Ostavi ga.
+| Tip | Šta je | Zašto |
+|-----|--------|-------|
+| `ListOrderShipmentsQueryDto` | jedan red tabele | to postaje `TItem`, dakle tip od `items` |
+| `ListOrderShipmentsRequest` | query koji šalješ (`paging` + `orderId`) | to postaje `TRequest`, dakle tip od `this.request` |
 
-`items` više ne deklariraš. Dolazi iz `BaseListComponent`, a `handlePageResult` ga puni iz `response.items`. Ako ostaviš lokalni niz, on sakrije bazni i tabela ostane na hardkodu.
+Oba tipa su iz koraka F1, fajl `order-shipments-api.models.ts`. `ListOrderShipmentsRequest` već `extends BasePagedQuery`, pa `new ListOrderShipmentsRequest()` sam napravi `paging`.
 
-`onCreate()` ostavi prazan. HTML već zove `(click)="onCreate()"`. Navigaciju dopisuješ u koraku G5.
+Uzor je Products, ista dva mjesta, druga imena:
 
-Fajl: `src/app/modules/admin/posiljke/posiljke.component.ts`
+```ts
+export class ProductsComponent
+  extends BaseListPagedComponent<ListProductsQueryDto, ListProductsRequest>
+  implements OnInit {
+```
 
-Importi su `../../../`, ne `../../../../`. Pošiljke su u `modules/admin/posiljke`, a Products je jedan folder dublje (`catalogs/products`).
+##### Importi — tri tačke, ne četiri
+
+Pošiljke su u `modules/admin/posiljke`. Products je jedan folder dublje: `modules/admin/catalogs/products`.
+
+```
+src/app/modules/admin/posiljke/posiljke.component.ts
+        ../            → admin
+        ../../         → modules
+        ../../../      → app     ← ovo treba tebi
+
+src/app/modules/admin/catalogs/products/products.component.ts
+        ../../../../   → app     ← ovo ima Products
+```
+
+Ako kopiraš import iz Products i ostaviš četiri `../`, TypeScript ne nađe fajl. Tvoji importi:
+
+```ts
+import { Component, inject, OnInit } from '@angular/core';
+import {
+  ListOrderShipmentsQueryDto,
+  ListOrderShipmentsRequest
+} from '../../../api-services/order-shipments/order-shipments-api.models';
+import { OrderShipmentsApiService } from '../../../api-services/order-shipments/order-shipments-api.service';
+import { BaseListPagedComponent } from '../../../core/components/base-classes/base-list-paged-component';
+import { ToasterService } from '../../../core/services/toaster.service';
+```
+
+`Router`, `OrdersApiService` i `DialogHelperService` ovdje ne dodaješ. Router je G5, narudžbe za dropdown su G3, dijalog brisanja je faza J.
+
+##### Cijeli fajl poslije G2
+
+Ovo je cijeli `posiljke.component.ts` na kraju ovog koraka. Ništa ispod `onCreate` još ne postoji.
 
 ```ts
 import { Component, inject, OnInit } from '@angular/core';
@@ -1540,11 +1671,189 @@ export class PosiljkeComponent
 }
 ```
 
-**Zašto `pageSize = 10`:** `PageRequest` ima default `pageSize = 1000`. Seed ima 12 pošiljki, pa bi bez ove linije sve stalo na jednu stranu i paginator izgleda kao da ne radi. Sa 10 vidiš 10 redova i drugu stranu.
+##### Odakle se kopira obrazac
 
-**Zašto `super()`:** bazna klasa ima konstruktor. Bez `super()` TypeScript ne kompajlira klasu koja `extends`.
+Iz `products.component.ts` prepisuješ konstruktor, `ngOnInit` i `loadPagedData`. Imena tipova i servisa mijenjaš. Router, edit, delete i search ostaju u Productsu — njih ovdje ne kopiraš.
 
-**Šta `initList` radi:** zove `loadData()`, a `BaseListPagedComponent` to preusmjerava na tvoj `loadPagedData()`. Zato u `ngOnInit` ne zoveš `loadPagedData()` direktno, nego `initList()`, kao Products.
+```ts
+constructor() {
+  super();
+  this.request = new ListProductsRequest();
+}
+
+ngOnInit(): void {
+  this.initList();
+}
+
+protected loadPagedData(): void {
+  this.startLoading();
+
+  this.api.list(this.request).subscribe({
+    next: (response) => {
+      this.handlePageResult(response);
+      this.stopLoading();
+    },
+    error: (err) => {
+      this.stopLoading('Failed to load products');
+      console.error('Load products error:', err);
+    }
+  });
+}
+```
+
+Jedina razlika u `error` grani: uz `stopLoading` dodaš i `this.toaster.error(...)`, da korisnik vidi poruku, a ne samo crveni tekst u konzoli.
+
+##### Šta koja linija radi
+
+**`private api` i `private toaster`.** `inject(...)` uzme servis koji je već `providedIn: 'root'`. Ne dodaješ ih u konstruktor i ne registruješ u modulu. `api.list` je metoda iz koraka F2.
+
+**Konstruktor.** Bazna klasa ima svoj konstruktor, zato prva linija mora biti `super()`. Bez nje TypeScript ne kompajlira klasu koja `extends`.
+
+```ts
+export abstract class BaseListPagedComponent<TItem, TRequest extends BasePagedQuery>
+  extends BaseListComponent<TItem> {
+
+  constructor() {
+    super();
+  }
+
+  request!: TRequest;
+```
+
+`request!: TRequest` znači „ovo polje će postojati, a ja ga ne inicijaliziram ovdje". Zato ga ti praviš u svom konstruktoru:
+
+```ts
+this.request = new ListOrderShipmentsRequest();
+this.request.paging.pageSize = 10;
+```
+
+`ListOrderShipmentsRequest` nasljeđuje `BasePagedQuery`, a taj konstruktor sam napravi `paging`:
+
+```ts
+export class BasePagedQuery {
+  paging: PageRequest;
+
+  constructor() {
+    this.paging = new PageRequest();
+  }
+}
+```
+
+`PageRequest` ima dva polja. Defaulti su stranica 1 i **1000** redova:
+
+```ts
+export class PageRequest {
+  page: number;
+  pageSize: number;
+
+  constructor(page: number = 1, pageSize: number = 1000) {
+    this.page = page;
+    this.pageSize = pageSize;
+  }
+}
+```
+
+`page` je broj strane (1, 2, 3). `pageSize` je koliko redova stane na jednu stranu. Seed ima 12 pošiljki. Sa defaultom 1000 sve stane na stranu 1 i paginator izgleda kao da ne radi. `pageSize = 10` pokaže 10 redova i drugu stranu s preostala 2.
+
+Linija `this.request.paging.page = 10` je druga stvar: to traži **desetu stranu**. Na njoj nema redova, tabela ostane prazna. Pišeš `pageSize`, ne `page`.
+
+**`ngOnInit` zove `initList()`, ne `loadPagedData()`.** Lanac je već napisan u bazi. Ti ga ne prepisuješ.
+
+```ts
+// BaseListComponent
+protected initList(): void {
+  this.loadData();
+}
+
+// BaseListPagedComponent — preusmjeri loadData na tvoju metodu
+protected override loadData(): void {
+  this.loadPagedData();
+}
+```
+
+```
+ngOnInit()
+  └─ this.initList()                 // BaseListComponent
+       └─ this.loadData()            // override u BaseListPagedComponent
+            └─ this.loadPagedData()  // tvoja metoda, abstract dok je ne napišeš
+```
+
+`loadPagedData` je `protected abstract` u bazi. Dok ga ne implementiraš, klasa se ne kompajlira. Zato je u tvom fajlu `protected loadPagedData(): void`.
+
+**`loadPagedData`, red po red.**
+
+```ts
+protected loadPagedData(): void {
+  this.startLoading();
+
+  this.api.list(this.request).subscribe({
+    next: (response) => {
+      this.handlePageResult(response);
+      this.stopLoading();
+    },
+    error: (err) => {
+      this.stopLoading('Failed to load shipments');
+      this.toaster.error('Failed to load shipments');
+      console.error('Load shipments error:', err);
+    }
+  });
+}
+```
+
+`startLoading` i `stopLoading` su na `BaseComponent`. Prvi upali `isLoading`. Drugi ga ugasi. Ako predaš string, upiše ga u `errorMessage`.
+
+```ts
+export abstract class BaseComponent {
+  isLoading = false;
+  errorMessage: string | null = null;
+
+  startLoading(): void {
+    this.isLoading = true;
+    this.errorMessage = null;
+  }
+
+  stopLoading(error?: string): void {
+    this.isLoading = false;
+    if (error) this.errorMessage = error;
+  }
+}
+```
+
+`this.api.list(this.request)` vrati `Observable`. `subscribe` je u komponenti, ne u servisu. `this.request` u tom trenutku nosi `paging.page = 1` i `paging.pageSize = 10`. `buildHttpParams` iz F2 to pretvori u `?paging.page=1&paging.pageSize=10`.
+
+U `next`, `handlePageResult` prepiše tri polja s odgovora. Tu se `items` napuni. Ti tu metodu ne pišeš.
+
+```ts
+protected handlePageResult(result: PageResult<TItem>) {
+  this.items = result.items;
+  this.totalItems = result.totalItems;
+  this.totalPages = result.totalPages;
+}
+```
+
+`items` hrani tabelu. `totalItems` i `totalPages` hrane paginator iz G4. Zato ih već sada moraš dobiti, iako HTML paginatora još nema.
+
+Poslije toga `stopLoading()` bez argumenta: spinner se gasi, `errorMessage` ostaje `null`.
+
+U `error` grani isto gasiš loading, inače spinner ostane zauvijek. `stopLoading('Failed to load shipments')` upiše tekst u `errorMessage`. `toaster.error(...)` pokaže crveni toast. `console.error` ostavi objekat greške u konzoli, jer toast ne pokazuje status kod ni tijelo odgovora.
+
+**`onCreate` ostaje prazan.** HTML već ima dugme:
+
+```html
+<button mat-raised-button color="primary" (click)="onCreate()">
+```
+
+Ako metodu obrišeš, template se ne kompajlira. Tijelo (`this.router.navigate(...)`) dopisuješ u G5.
+
+##### Provjera
+
+1. `ng serve` prođe. Nema greške „Property items does not exist" i nema „loadPagedData is abstract".
+2. Ulogovan otvori `/admin/posiljke`.
+3. Network: `GET http://localhost:7001/OrderShipments?paging.page=1&paging.pageSize=10`.
+4. Tabela ima 10 redova iz seeda (`SHP-00001` …), ne onih 6 s datumom već napisanim kao `02.02.2026`.
+5. Druga strana još nema dugme — paginator dodaješ u G4. Podaci su ipak već odsječeni na 10, jer si `pageSize` poslala u query-ju.
+
+Ako i dalje vidiš tačno šest starter redova, lokalni `items` nije obrisan. Ako je tabela prazna, a u konzoli nema greške, provjeri da nisi slučajno postavila `paging.page = 10`.
 
 #### Korak G3: Filter po narudžbi
 
