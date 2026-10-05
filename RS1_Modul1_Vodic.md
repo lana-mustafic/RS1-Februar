@@ -2312,7 +2312,7 @@ changePageSize(size: number) {
 GET http://localhost:7001/OrderShipments?paging.page=2&paging.pageSize=10
 ```
 
-Tabela pokaže preostala 2 reda (`SHP-00011` i `SHP-00012` ako nema filtera). „Sljedeća" se ugasi jer je `page >= totalPages`. „Prethodna" zove `goToPage(1)` i vrati prvih 10.
+Tabela pokaže preostala 2 reda. Lista je sortirana od najnovijeg `ShippedAtUtc`, pa su to dvije najstarije pošiljke: `SHP-00006` i `SHP-00001`. „Sljedeća" se ugasi jer je `page >= totalPages`. „Prethodna" zove `goToPage(1)` i vrati prvih 10.
 
 „Po stranici: 20" zove `changePageSize(20)`. Ona stavi `pageSize = 20` i **vrati `page` na 1**, pa opet učita listu. Bez tog reset-a ostala bi na strani 2, a sa 20 redova strana 2 ne postoji i tabela bi bila prazna. Isti razlog kao `page = 1` u filteru iz G3.
 
@@ -2697,23 +2697,119 @@ Na `/admin/posiljke`, prva strana:
 
 #### Korak G7: Brisanje (logika na listi)
 
-Vidi Fazu J. Poziva se iz liste, ne iz posebne stranice.
+U ovom koraku ne praviš fajl i ne puniš `onDelete`. Kanta već zove praznu metodu iz G5. Tijelo (`confirmDelete`, pa `api.delete`, pa `loadPagedData`) pišeš u fazi J, u istoj `PosiljkeComponent`. Ovdje provjeriš da lista iz G2–G6 radi, i da brisanje nije posebna stranica.
 
-Kanta već zove `onDelete(item)` iz koraka G5. Tu praznu metodu puniš u fazi J (`confirmDelete`, pa `api.delete`, pa `loadPagedData`). Ne praviš rutu `posiljke/:id/delete` i ne praviš novu komponentu. `admin-routing-module.ts` za pošiljke ima samo listu, add i edit.
+##### Nema rute za brisanje
 
-Dok J nije gotov, klik na kantu ne radi ništa. Lista se i dalje može testirati.
+`admin-routing-module.ts` za pošiljke ima samo ovo:
 
-**Kako testirati listu:**
+```ts
+{
+  path: 'posiljke',
+  component: PosiljkeComponent,
+},
+{
+  path: 'posiljke/add',
+  component: PosiljkaAddComponent,
+},
+{
+  path: 'posiljke/:id/edit',
+  component: PosiljkaEditComponent,
+},
+```
 
-1. Uloguj se i otvori `/admin/posiljke`.
-2. Vidiš seed, ne 6 hardkodiranih redova iz startera. Seed ima **12** pošiljki, `SHP-00001` … `SHP-00012`.
-3. Cijena ima jednu decimalu i zarez zbog `bs-BA` (`12,5 KM`), datumi su `dd.MM.yyyy`, prazan datum dostave je `-`.
-4. Sa `pageSize = 10` prva strana ima 10 redova, druga 2. Paginator piše ukupno 12.
-5. U Network tabu prvi poziv je `GET http://localhost:7001/OrderShipments?paging.page=1&paging.pageSize=10`. Nema `orderId`.
-6. Odaberi jednu narudžbu. `paging.page` se vraća na 1, a URL dobije `orderId`. Prva narudžba u seedu ima dvije pošiljke (`SHP-00001` i `SHP-00006`), pa se lista smanji.
-7. „Sve narudžbe" skine `orderId` iz query stringa i vrati svih 12.
+Nema `posiljke/:id/delete` i ne dodaješ je. Nema `PosiljkaDeleteComponent`. Klik na kantu ostaje na `/admin/posiljke`.
 
-Ako i dalje vidiš tačno onih 6 starter redova (`SHP-00001` … `SHP-00006` s datumima upisanim kao tekst), lokalni `items` nije obrisan i tabela ne čita API.
+Dugme iz G5:
+
+```html
+<button mat-icon-button color="warn" matTooltip="Obriši" (click)="onDelete(item)">
+  <mat-icon>delete</mat-icon>
+</button>
+```
+
+Metoda koja sad mora stajati, prazna:
+
+```ts
+onDelete(item: ListOrderShipmentsQueryDto): void {
+}
+```
+
+Klik otvori i zatvori taj prazan poziv. URL se ne mijenja. U Networku nema `DELETE`. U konzoli nema greške. Ako šablon i dalje javlja da `onDelete` ne postoji, metoda nije na klasi.
+
+##### Šta faza J upiše u tu prazninu
+
+Ne kopiraj ovo dok nisi na J1 i J2. Stoji ovdje da se vidi da je i dalje ista klasa, isti `item`, i da API ide tek poslije potvrde u modalu.
+
+J1 otvori dijalog. `DialogButton.DELETE` jedini nastavlja. Otkaži i klik pored modala ne uđu u `if`:
+
+```ts
+onDelete(item: ListOrderShipmentsQueryDto): void {
+  this.dialogHelper.confirmDelete(item.shipmentNumber).subscribe(result => {
+    if (result && result.button === DialogButton.DELETE) {
+      this.performDelete(item);
+    }
+  });
+}
+```
+
+J2 tek onda briše i ponovo učita listu. `item.id` je broj iz reda, ne tekst `SHP-00003`. `shipmentNumber` ide samo u rečenicu modala.
+
+```ts
+private performDelete(item: ListOrderShipmentsQueryDto): void {
+  this.startLoading();
+
+  this.api.delete(item.id).subscribe({
+    next: () => {
+      this.toaster.success('Pošiljka je obrisana');
+      this.loadPagedData();
+    },
+    error: (err) => {
+      this.stopLoading();
+      this.toaster.error('Greška pri brisanju pošiljke');
+      console.error('Delete shipment error:', err);
+    }
+  });
+}
+```
+
+`loadPagedData()` ponovo zove `GET /OrderShipments`. Obrisani red ne vraćaš ručno iz `items`. Dok je `onDelete` prazan, ovaj `DELETE` se ne šalje. Zato listu možeš testirati prije faze J.
+
+##### Kako testirati listu
+
+Backend na `http://localhost:7001`, frontend na `http://localhost:4200`. Uloguj se kao `admin@market.local` / `Admin123!`. U sidebaru „Pošiljke (Modul 1)" ili direktno `http://localhost:4200/admin/posiljke`.
+
+Otvori Network i ostavi filter na `OrderShipments` i `Orders`.
+
+1. **G2, podaci s API-ja.** Prvi poziv je
+
+   `GET http://localhost:7001/OrderShipments?paging.page=1&paging.pageSize=10`
+
+   Nema `orderId`. U odgovoru `totalItems` je 12, `items` ima 10 objekata. Tabela nije onih 6 starter redova. Starter datumi su već bili tekst `02.02.2026`, `07.02.2026`, … Ako vidiš baš tih šest datuma i samo `SHP-00001` … `SHP-00006`, lokalni `items` i dalje sakriva niz iz baze.
+
+2. **G6, prikaz.** Cijena ima jednu decimalu i zarez (`12,5 KM`, `8,0 KM`). Datum slanja je `dd.MM.yyyy`, bez `T`. Prazan `deliveredAtUtc` je `-`. Dostavljena pošiljka ima oba datuma. Bedž piše riječ (`Dostavljena`, `Kreirana`, …), ne broj.
+
+3. **G4, stranice.** Traka piše „Stranica 1 od 2" i „Ukupno: 12 zapisa". Handler liste sortira `OrderByDescending(x => x.ShippedAtUtc)`, pa su na drugoj strani dvije najstarije: `SHP-00006`, pa `SHP-00001`. „Sljedeća" šalje
+
+   `GET http://localhost:7001/OrderShipments?paging.page=2&paging.pageSize=10`
+
+   Tabela ima 2 reda. „Prethodna" vrati `paging.page=1`.
+
+4. **G3, filter.** Drugi poziv pri učitavanju je
+
+   `GET http://localhost:7001/Orders?paging.page=1&paging.pageSize=100`
+
+   Select ima `ORD-0001` … `ORD-0006`. Odabir `ORD-0001` resetuje stranicu i šalje
+
+   `GET http://localhost:7001/OrderShipments?orderId=1&paging.page=1&paging.pageSize=10`
+
+   Ostanu `SHP-00001` i `SHP-00006`. `totalItems` je 2, „Sljedeća" je ugašena. „Sve narudžbe" skine `orderId` iz URL-a i vrati 12.
+
+5. **G5, navigacija.** „Nova pošiljka" otvori `/admin/posiljke/add` i tekst `posiljka-add works!`. Olovka otvori `/admin/posiljke/{id}/edit` i `posiljka-edit works!`. Id je broj iz JSON-a, ne `SHP-00005`.
+
+6. **Kanta, još prazna.** Klik ne mijenja URL, ne otvara modal i ne šalje `DELETE`. To je u redu do faze J.
+
+Ako je tabela prazna, a u konzoli nema greške: provjeri da u konstruktoru stoji `paging.pageSize = 10`, a ne `paging.page = 10`. Ako je prvi GET 401, nisi ulogovana ili token nije staff. Ako GET uopšte nema, `ngOnInit` ne zove `initList()`.
 
 ---
 
