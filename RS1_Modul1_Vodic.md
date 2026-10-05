@@ -2322,42 +2322,196 @@ Filter iz G3 i ova traka dijele isti `request`. Odabir `ORD-0001` vrati 2 pošil
 
 #### Korak G5: Akcije
 
-HTML trenutno ima dugmad **bez** `(click)`. Dodaj:
+Dva fajla. Rute, komponente i dugmad već postoje. Ovdje samo spojiš klik s `router.navigate`. Ne dodaješ rutu u `admin-routing-module.ts`, ne praviš `posiljke/:id/delete` i ne registruješ komponentu.
 
-- olovka: `(click)="onEdit(item)"`
-- kanta: `(click)="onDelete(item)"`
+| Fajl | Šta radiš |
+|------|-----------|
+| `posiljke.component.ts` | `Router`, tijelo `onCreate` i `onEdit`. `onDelete` ostaje prazan |
+| `posiljke.component.html` | `(click)` na olovku i kantu. Dugme „Nova pošiljka" već zove `onCreate()` |
 
-Rute već postoje u `admin-routing-module.ts`, ispod `path: 'admin'`:
+Add i edit stranice su i dalje prazne (`posiljka-add works!` / `posiljka-edit works!`). Forma dolazi u fazi H i I. Uspjeh ovog koraka je da URL ode na `/admin/posiljke/add` ili `/admin/posiljke/5/edit` i da vidiš taj tekst. Kanta još ništa ne radi: tijelo `onDelete` je faza J.
 
-| Akcija | `navigate` | Ruta |
-|--------|------------|------|
-| Nova pošiljka | `['/admin/posiljke/add']` | `posiljke/add` |
-| Uredi | `['/admin/posiljke', item.id, 'edit']` | `posiljke/:id/edit` |
+##### Rute koje samo čitaš
 
-`onCreate` je prazan u starteru — samo dopuni navigaciju. Dugme „Nova pošiljka" već ima `(click)="onCreate()"`. Tijelo `onDelete` dolazi u fazi J; ovdje metoda mora postojati, inače se template ne kompajlira.
-
-U `posiljke.component.ts` dodaj import i injektuj router. `ListOrderShipmentsQueryDto` je već uvezen u koraku G2.
+`app-routing-module.ts` kači admin na prefiks `admin`:
 
 ```ts
-import { Router } from '@angular/router';
+{
+  path: 'admin',
+  canActivate: [myAuthGuard],
+  data: myAuthData({ requireAuth: true, requireAdmin: true }),
+  loadChildren: () =>
+    import('./modules/admin/admin-module').then(m => m.AdminModule)
+}
 ```
 
-```ts
-private router = inject(Router);
+Djeca u `admin-routing-module.ts` nemaju `admin` u svom `path`. Zato je puna adresa `/admin` + dječija putanja. Pošiljke su već upisane, `add` prije `:id`:
 
+```ts
+{
+  path: 'posiljke',
+  component: PosiljkeComponent,
+},
+{
+  path: 'posiljke/add',
+  component: PosiljkaAddComponent,
+},
+{
+  path: 'posiljke/:id/edit',
+  component: PosiljkaEditComponent,
+},
+```
+
+`posiljke/add` mora ostati iznad `posiljke/:id/edit`. Inače bi riječ `add` upala u `:id`. Tri komponente su već u `declarations` od `AdminModule`. Ne diraš ni routing ni modul.
+
+Uzor je Products, ista tri segmenta, druga riječ:
+
+```ts
 onCreate(): void {
-  this.router.navigate(['/admin/posiljke/add']);
+  this.router.navigate(['/admin/products/add']);
 }
 
-onEdit(item: ListOrderShipmentsQueryDto): void {
-  this.router.navigate(['/admin/posiljke', item.id, 'edit']);
-}
-
-onDelete(item: ListOrderShipmentsQueryDto): void {
+onEdit(product: ListProductsQueryDto): void {
+  this.router.navigate(['/admin/products', product.id, 'edit']);
 }
 ```
 
-Kolona akcija u `posiljke.component.html`:
+`onDelete` kod Products odmah otvara dijalog i zove API. To ne kopiraš. Ovdje metoda postoji i tijelo je prazno do faze J.
+
+##### Cijeli `posiljke.component.ts` poslije G5
+
+G3 plus `Router`. `loadPagedData`, filter i paginacija ostaju isti.
+
+```ts
+import { Component, inject, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
+import {
+  ListOrderShipmentsQueryDto,
+  ListOrderShipmentsRequest
+} from '../../../api-services/order-shipments/order-shipments-api.models';
+import { OrderShipmentsApiService } from '../../../api-services/order-shipments/order-shipments-api.service';
+import { ListOrdersQueryDto } from '../../../api-services/orders/orders-api.models';
+import { OrdersApiService } from '../../../api-services/orders/orders-api.service';
+import { BaseListPagedComponent } from '../../../core/components/base-classes/base-list-paged-component';
+import { largePaging } from '../../../core/models/paging/paging-utils';
+import { ToasterService } from '../../../core/services/toaster.service';
+
+@Component({
+  selector: 'app-posiljke',
+  standalone: false,
+  templateUrl: './posiljke.component.html',
+  styleUrl: './posiljke.component.scss'
+})
+export class PosiljkeComponent
+  extends BaseListPagedComponent<ListOrderShipmentsQueryDto, ListOrderShipmentsRequest>
+  implements OnInit {
+
+  private api = inject(OrderShipmentsApiService);
+  private ordersApi = inject(OrdersApiService);
+  private router = inject(Router);
+  private toaster = inject(ToasterService);
+
+  orders: ListOrdersQueryDto[] = [];
+
+  displayedColumns: string[] = [
+    'shipmentNumber',
+    'orderReferenceNumber',
+    'status',
+    'shippingCost',
+    'shippedAtUtc',
+    'deliveredAtUtc',
+    'actions'
+  ];
+
+  constructor() {
+    super();
+    this.request = new ListOrderShipmentsRequest();
+    this.request.paging.pageSize = 10;
+  }
+
+  ngOnInit(): void {
+    this.initList();
+
+    this.ordersApi.list({ paging: largePaging }).subscribe({
+      next: (res) => this.orders = res.items
+    });
+  }
+
+  protected loadPagedData(): void {
+    this.startLoading();
+
+    this.api.list(this.request).subscribe({
+      next: (response) => {
+        this.handlePageResult(response);
+        this.stopLoading();
+      },
+      error: (err) => {
+        this.stopLoading('Failed to load shipments');
+        this.toaster.error('Failed to load shipments');
+        console.error('Load shipments error:', err);
+      }
+    });
+  }
+
+  onOrderFilterChange(): void {
+    this.request.paging.page = 1;
+    this.loadPagedData();
+  }
+
+  onCreate(): void {
+    this.router.navigate(['/admin/posiljke/add']);
+  }
+
+  onEdit(item: ListOrderShipmentsQueryDto): void {
+    this.router.navigate(['/admin/posiljke', item.id, 'edit']);
+  }
+
+  onDelete(item: ListOrderShipmentsQueryDto): void {
+  }
+}
+```
+
+`ListOrderShipmentsQueryDto` je već uvezen od G2. Ima `id: number`, pa `item.id` u `onEdit` jeste broj iz reda tabele. `Router` dolazi iz `@angular/router`, ne iz relativne putanje. `inject(Router)` je isti obrazac kao `inject(OrderShipmentsApiService)`. `RouterModule` ne dodaješ u komponentu: aplikacija ga već ima preko `AppRoutingModule` i `AdminRoutingModule`.
+
+`navigate` prima niz segmenata. Angular ih spoji kosom crtom. Vodeći `/` znači apsolutno od korijena, ne od trenutne rute `/admin/posiljke`.
+
+| Poziv | URL | Ruta koja se pogodi |
+|-------|-----|---------------------|
+| `['/admin/posiljke/add']` | `/admin/posiljke/add` | `posiljke/add` |
+| `['/admin/posiljke', 5, 'edit']` | `/admin/posiljke/5/edit` | `posiljke/:id/edit`, parametar `id` = `5` |
+
+Tri segmenta u `onEdit` su namjerna. `item.id` stoji kao svoj element niza, pa se ne lijepi uz tekst. Jedan string `` `/admin/posiljke/${item.id}/edit` `` zna isto, ali Products ne radi tako i lakše je pogriješiti kosu crtu. Pišeš niz, kao u uzoru.
+
+`['/posiljke/add']` nema `admin`, pa guard i layout admina se ne uključe i ruta ne postoji. `['admin/posiljke/add']` bez prvog `/` je relativno: sa stranice `/admin/posiljke` ode na `/admin/posiljke/admin/posiljke/add`.
+
+##### HTML
+
+Dugme u zaglavlju već ima handler. Ne dodaješ drugi `(click)`.
+
+```html
+<button mat-raised-button color="primary" (click)="onCreate()">
+  <mat-icon>add</mat-icon>
+  Nova pošiljka
+</button>
+```
+
+Kolona `actions` već postoji u `displayedColumns` i u tabeli. Starter ima ikone bez poziva:
+
+```html
+<ng-container matColumnDef="actions">
+  <th mat-header-cell *matHeaderCellDef>Akcije</th>
+  <td mat-cell *matCellDef="let item">
+    <button mat-icon-button color="primary" matTooltip="Uredi">
+      <mat-icon>edit</mat-icon>
+    </button>
+    <button mat-icon-button color="warn" matTooltip="Obriši">
+      <mat-icon>delete</mat-icon>
+    </button>
+  </td>
+</ng-container>
+```
+
+Poslije G5, isti kontejner, samo `(click)`:
 
 ```html
 <ng-container matColumnDef="actions">
@@ -2373,7 +2527,16 @@ Kolona akcija u `posiljke.component.html`:
 </ng-container>
 ```
 
-**Zašto tri segmenta u `onEdit`:** `['/admin/posiljke', item.id, 'edit']` za id `5` postane `/admin/posiljke/5/edit`. To odgovara `path: 'posiljke/:id/edit'`. Ne slaži URL ručno kao string.
+Ime u šablonu je `item`, jer piše `*matCellDef="let item"`. `onEdit(row)` ne kompajlira: `row` postoji samo na `<tr mat-row *matRowDef="let row; ...">`, a dugmad su u ćeliji. `item` je jedan red iz `items`, dakle `ListOrderShipmentsQueryDto`.
+
+`onDelete` mora stajati na klasi iako je prazan. Inače šablon prijavi da `onDelete` ne postoji i `ng serve` padne. Klik na kantu do faze J ne šalje `DELETE` i ne otvara modal.
+
+##### Provjera
+
+1. „Nova pošiljka" otvori `/admin/posiljke/add`. Na stranici piše `posiljka-add works!`.
+2. Olovka na redu s `id` 5 otvori `/admin/posiljke/5/edit` i tekst `posiljka-edit works!`. Id uzmi iz Network odgovora liste, ne iz broja pošiljke `SHP-00005` (to nije `id`).
+3. Kanta ne mijenja URL i ne baca grešku u konzoli.
+4. Nazad na `/admin/posiljke`: lista, filter i paginator rade kao prije. Navigacija ih ne dira.
 
 #### Korak G6: Formatiranje u templateu
 
