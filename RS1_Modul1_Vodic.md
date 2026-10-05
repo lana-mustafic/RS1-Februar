@@ -1857,50 +1857,155 @@ Ako i dalje vidiš tačno šest starter redova, lokalni `items` nije obrisan. Ak
 
 #### Korak G3: Filter po narudžbi
 
-1. Injektuj `OrdersApiService` (već postoji).
-2. Niz `orders: ListOrdersQueryDto[] = []`.
-3. U `ngOnInit` (pored `initList`) učitaj narudžbe:
+Dva fajla. Klasa iz G2 ostaje. Ovdje joj dodaš dropdown narudžbi i ponovno učitavanje liste kad se odabir promijeni.
+
+| Fajl | Šta radiš |
+|------|-----------|
+| `posiljke.component.ts` | uvezeš postojeći `OrdersApiService`, napuniš `orders`, na promjenu resetuješ stranicu i zoveš `loadPagedData()` |
+| `posiljke.component.html` | u `.actions-container`, prije dugmeta „Nova pošiljka", dodaš `mat-select` |
+
+SCSS ne diraš. `.search-field` već postoji i širok je 280px. `FormsModule` ne dodaješ. `OrdersApiService` ne praviš — narudžbe su tuđi modul i servis je već u projektu.
+
+Filter nije Reactive Form. `formControlName` i `FormGroup` ostaju za add/edit (faza H i I). Na listi je `[(ngModel)]` dovoljan.
+
+##### Šta već postoji, pa ne kreiraš
+
+`orderId` na requestu si napisala u F1. Dropdown samo upisuje broj u to polje:
 
 ```ts
-this.ordersApi.list({ paging: largePaging }).subscribe({
-  next: (res) => this.orders = res.items
-});
-```
-
-`largePaging` je iz `core/models/paging/paging-utils.ts` — pageSize 100, dovoljno za dropdown.
-
-4. U HTML, u `.actions-container` (SCSS već ima `.search-field`), dodaj `mat-select`:
-
-- label: npr. „Narudžba"
-- prva opcija: „Sve narudžbe" s vrijednošću `null` ili prazno
-- ostale: `*ngFor="let o of orders"` → tekst `o.referenceNumber`, vrijednost `o.id`
-
-5. Na promjenu:
-
-```ts
-onOrderFilterChange(): void {
-  this.request.paging.page = 1; // OBAVEZNO
-  this.loadPagedData();
+export class ListOrderShipmentsRequest extends BasePagedQuery {
+  orderId?: number | null;
 }
 ```
 
-`[(ngModel)]="request.orderId"` je OK za filter (nije Reactive Form; forma je add/edit). `FormsModule` je već u `SharedModule`, ne dodaješ ga.
+Dok je `orderId` `undefined` ili `null`, prvi `GET /OrderShipments` ide bez tog parametra i backend vrati sve pošiljke.
 
-**Zašto page = 1?** Ako si na stranici 3, pa filtriraš na 2 rezultata, stranica 3 više ne postoji — vidiš praznu tabelu i misliš da filter ne radi.
-
-U `posiljke.component.ts` dodaj import i polja na klasu iz koraka G2. `ngOnInit` i dalje prvo zove `initList()`.
+Narudžbe čitaš iz servisa koji je već `providedIn: 'root'`:
 
 ```ts
-import { ListOrdersQueryDto } from '../../../api-services/orders/orders-api.models';
-import { OrdersApiService } from '../../../api-services/orders/orders-api.service';
-import { largePaging } from '../../../core/models/paging/paging-utils';
+list(request?: ListOrdersRequest): Observable<ListOrdersResponse> {
+  const params = request ? buildHttpParams(request as any) : undefined;
+
+  return this.http.get<ListOrdersResponse>(this.baseUrl, {
+    params,
+  });
+}
 ```
 
+`baseUrl` je `${environment.apiUrl}/Orders`. Jedan red dropdowna je `ListOrdersQueryDto`. Tebi trebaju samo dva polja:
+
 ```ts
-private ordersApi = inject(OrdersApiService);
+export interface ListOrdersQueryDto {
+  id: number;
+  referenceNumber: string | null;
+  // user, orderedAtUtc, status, totalAmount, note — dropdown ih ne prikazuje
+}
+```
 
-orders: ListOrdersQueryDto[] = [];
+`id` ide u `[value]`. `referenceNumber` ide u tekst opcije (`ORD-0001`). Ako staviš `referenceNumber` u `[value]`, backend dobije string umjesto `orderId` i filter ne suzi listu.
 
+`largePaging` je gotova konstanta, stranica 1 i 100 redova. Za ispitni seed (šest narudžbi) to je dovoljno. Ne praviš svoj `PageRequest`.
+
+```ts
+export const largePaging: PageRequest = new PageRequest(1, 100);
+```
+
+`ngModel` radi jer `SharedModule` već eksportuje `FormsModule`, a admin modul taj shared već uvozi. U `posiljke.component.ts` nema `imports: [FormsModule]`. Komponenta je `standalone: false`.
+
+##### Cijeli `posiljke.component.ts` poslije G3
+
+Ovo je G2 plus tri importa, `ordersApi`, niz `orders`, prošireni `ngOnInit` i `onOrderFilterChange`. `loadPagedData` se ne mijenja: i dalje šalje `this.request`, a u njemu sad može stajati `orderId`.
+
+```ts
+import { Component, inject, OnInit } from '@angular/core';
+import {
+  ListOrderShipmentsQueryDto,
+  ListOrderShipmentsRequest
+} from '../../../api-services/order-shipments/order-shipments-api.models';
+import { OrderShipmentsApiService } from '../../../api-services/order-shipments/order-shipments-api.service';
+import { ListOrdersQueryDto } from '../../../api-services/orders/orders-api.models';
+import { OrdersApiService } from '../../../api-services/orders/orders-api.service';
+import { BaseListPagedComponent } from '../../../core/components/base-classes/base-list-paged-component';
+import { largePaging } from '../../../core/models/paging/paging-utils';
+import { ToasterService } from '../../../core/services/toaster.service';
+
+@Component({
+  selector: 'app-posiljke',
+  standalone: false,
+  templateUrl: './posiljke.component.html',
+  styleUrl: './posiljke.component.scss'
+})
+export class PosiljkeComponent
+  extends BaseListPagedComponent<ListOrderShipmentsQueryDto, ListOrderShipmentsRequest>
+  implements OnInit {
+
+  private api = inject(OrderShipmentsApiService);
+  private ordersApi = inject(OrdersApiService);
+  private toaster = inject(ToasterService);
+
+  orders: ListOrdersQueryDto[] = [];
+
+  displayedColumns: string[] = [
+    'shipmentNumber',
+    'orderReferenceNumber',
+    'status',
+    'shippingCost',
+    'shippedAtUtc',
+    'deliveredAtUtc',
+    'actions'
+  ];
+
+  constructor() {
+    super();
+    this.request = new ListOrderShipmentsRequest();
+    this.request.paging.pageSize = 10;
+  }
+
+  ngOnInit(): void {
+    this.initList();
+
+    this.ordersApi.list({ paging: largePaging }).subscribe({
+      next: (res) => this.orders = res.items
+    });
+  }
+
+  protected loadPagedData(): void {
+    this.startLoading();
+
+    this.api.list(this.request).subscribe({
+      next: (response) => {
+        this.handlePageResult(response);
+        this.stopLoading();
+      },
+      error: (err) => {
+        this.stopLoading('Failed to load shipments');
+        this.toaster.error('Failed to load shipments');
+        console.error('Load shipments error:', err);
+      }
+    });
+  }
+
+  onOrderFilterChange(): void {
+    this.request.paging.page = 1;
+    this.loadPagedData();
+  }
+
+  onCreate(): void {
+  }
+}
+```
+
+Importi i dalje imaju tri `../`. `orders` i `paging-utils` su pod `src/app`, isto kao API pošiljki.
+
+`orders` je obično polje na tvojoj klasi. Nije `items`. `items` i dalje puni samo `handlePageResult` iz odgovora pošiljki. Ako dropdown vežeš na `items`, tabela i select dijele isti niz i jedno pregazi drugo.
+
+##### Dva poziva u `ngOnInit`
+
+`initList()` ostaje prvi. On ide lancem iz G2 i odmah učita pošiljke bez `orderId`.
+
+Drugi `subscribe` je odvojen. Dropdown ne čeka listu, lista ne čeka dropdown.
+
+```ts
 ngOnInit(): void {
   this.initList();
 
@@ -1908,32 +2013,112 @@ ngOnInit(): void {
     next: (res) => this.orders = res.items
   });
 }
+```
 
+`{ paging: largePaging }` je objekat s jednim poljem. `largePaging` je već `PageRequest(1, 100)`, pa ne pišeš `new PageRequest` ni `new ListOrdersRequest`. `buildHttpParams` to pretvori u:
+
+```
+GET http://localhost:7001/Orders?paging.page=1&paging.pageSize=100
+```
+
+`res` je `PageResult<ListOrdersQueryDto>`. Niz za `*ngFor` je `res.items`, ne cijeli `res`. Ako upišeš `this.orders = res`, select nema `id` ni `referenceNumber` na elementima i opcije budu prazne.
+
+Zašto poseban poziv, a ne kolona iz tabele: red pošiljke ima `orderReferenceNumber`, ali samo za pošiljke na trenutnoj strani. Sa `pageSize = 10` prva strana nema svih 12, a dropdown mora ponuditi narudžbu i kad na toj strani nema njenih pošiljki. `OrdersApiService.list` vrati narudžbe, ne pošiljke.
+
+Ako ovaj poziv padne, `orders` ostane `[]`. Select pokaže samo „Sve narudžbe". Lista pošiljki i dalje radi, jer je drugi `subscribe`. U Networku tražiš `GET /Orders`.
+
+##### `onOrderFilterChange`
+
+```ts
 onOrderFilterChange(): void {
   this.request.paging.page = 1;
   this.loadPagedData();
 }
 ```
 
-U `posiljke.component.html`, unutar `.actions-container`, **prije** dugmeta „Nova pošiljka":
+`page`, ne `pageSize`. `pageSize` ostaje 10 iz konstruktora. Ovdje vraćaš broj strane na 1.
+
+Bez tog reset-a: stojiš na strani 3 (`paging.page = 3`), odabereš narudžbu koja ima 2 pošiljke. Strana 3 više ne postoji. `handlePageResult` dobije prazan `items`. Tabela je prazna i izgleda kao da filter ne radi. Sa `page = 1` isti filter vrati ta dva reda.
+
+`loadPagedData()` šalje cijeli `this.request`. Poslije odabira u njemu su `orderId`, `paging.page = 1` i `paging.pageSize = 10`.
+
+##### HTML — gdje se lijepi
+
+Starter, samo dugme:
 
 ```html
-<mat-form-field class="search-field" appearance="fill">
-  <mat-label>Narudžba</mat-label>
-  <mat-select
-    [(ngModel)]="request.orderId"
-    (ngModelChange)="onOrderFilterChange()">
-    <mat-option [value]="null">Sve narudžbe</mat-option>
-    <mat-option *ngFor="let o of orders" [value]="o.id">
-      {{ o.referenceNumber }}
-    </mat-option>
-  </mat-select>
-</mat-form-field>
+<div class="actions-container">
+  <button mat-raised-button color="primary" (click)="onCreate()">
+    <mat-icon>add</mat-icon>
+    Nova pošiljka
+  </button>
+</div>
 ```
 
-**Zašto `(ngModelChange)`, a ne samo klik:** handler čita `request.orderId`. `ngModelChange` se okine tek kad je nova vrijednost već upisana, pa `list` pošalje taj `orderId`. „Sve narudžbe" stavlja `null`, a `buildHttpParams` preskače `null`, pa backend vrati sve pošiljke.
+Poslije G3 select je **prije** dugmeta, unutar istog diva. `.actions-container` je flex s razmakom 16px, zato polje i dugme stoje u jednom redu. Klasa `search-field` je obavezna: bez nje nema širine 280px iz SCSS-a.
 
-**Zašto poseban poziv narudžbi:** dropdown treba `referenceNumber`, a lista pošiljki to ima samo za redove na trenutnoj strani. `OrdersApiService.list` puni sve narudžbe za filter. `largePaging` je stranica 1 i 100 redova.
+```html
+<div class="actions-container">
+  <mat-form-field class="search-field" appearance="fill">
+    <mat-label>Narudžba</mat-label>
+    <mat-select
+      [(ngModel)]="request.orderId"
+      (ngModelChange)="onOrderFilterChange()">
+      <mat-option [value]="null">Sve narudžbe</mat-option>
+      <mat-option *ngFor="let o of orders" [value]="o.id">
+        {{ o.referenceNumber }}
+      </mat-option>
+    </mat-select>
+  </mat-form-field>
+
+  <button mat-raised-button color="primary" (click)="onCreate()">
+    <mat-icon>add</mat-icon>
+    Nova pošiljka
+  </button>
+</div>
+```
+
+`[(ngModel)]="request.orderId"` radi dvije stvari. Kad se select otvori, prikaže vrijednost koja već stoji na requestu (`undefined` na početku, pa „Sve narudžbe"). Kad korisnik odabere opciju, upiše `o.id` (broj) u `request.orderId`.
+
+`(ngModelChange)` se okine tek nakon tog upisa. Zato handler smije odmah čitati `this.request.orderId` i poslati ga u `list`. Ako umjesto toga staviš `(click)` na `mat-select`, klik se desi prije nego što je nova vrijednost upisana, pa `loadPagedData` pošalje stari `orderId`.
+
+„Sve narudžbe" ima `[value]="null"`. To upiše `null` u `request.orderId`. `buildHttpParams` preskače `null` i prazan string:
+
+```ts
+if (value === null || value === undefined) {
+  return;
+}
+```
+
+Zato „Sve narudžbe" da URL bez `orderId`, a backend vrati sve. Odabir `ORD-0001` (id npr. `1`) da:
+
+```
+GET http://localhost:7001/OrderShipments?orderId=1&paging.page=1&paging.pageSize=10
+```
+
+To se poklapa s `[FromQuery] ListOrderShipmentsQuery` iz faze A.
+
+##### Provjera
+
+Otvori `/admin/posiljke` ulogovana. U Networku su dva poziva:
+
+1. `GET /OrderShipments?paging.page=1&paging.pageSize=10` — nema `orderId`, tabela ima 10 od 12.
+2. `GET /Orders?paging.page=1&paging.pageSize=100` — select se napuni sa `ORD-0001` … `ORD-0006`.
+
+Seed veže po dvije pošiljke na svaku od tih šest narudžbi:
+
+| Narudžba | Pošiljke |
+|----------|----------|
+| `ORD-0001` | `SHP-00001`, `SHP-00006` |
+| `ORD-0002` | `SHP-00002`, `SHP-00009` |
+| `ORD-0003` | `SHP-00003`, `SHP-00008` |
+| `ORD-0004` | `SHP-00004`, `SHP-00010` |
+| `ORD-0005` | `SHP-00005`, `SHP-00012` |
+| `ORD-0006` | `SHP-00007`, `SHP-00011` |
+
+Odaberi `ORD-0001`. URL dobije `orderId` i `paging.page=1`. U tabeli ostanu dvije pošiljke, obje s istim `orderReferenceNumber`. „Sve narudžbe" skine `orderId` i vrati punu listu.
+
+Ako se lista ne suzi: u requestu gledaj da `orderId` bude broj (`o.id`), ne tekst `ORD-0001`. Ako je tabela prazna odmah nakon odabira, a u URL-u je `paging.page` veći od 1, reset na stranicu 1 nije upisan.
 
 #### Korak G4: Paginacija u HTML-u
 
