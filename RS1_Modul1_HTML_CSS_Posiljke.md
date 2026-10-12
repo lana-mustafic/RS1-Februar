@@ -30,7 +30,7 @@ HTML proizvoda **ne lijepiš**. Tamo su `| translate` i polja proizvoda (naziv, 
 
 | Šta | Odakle uzimaš kod | U koji fajl | Kako |
 |-----|-------------------|-------------|------|
-| Lista | Dio 1, tačka **1**. Kraće: samo četiri izmjene iz Dijela 2 (filter, paginator, klikovi, pipe) | `posiljke/posiljke.component.html` | stranicu ne brišeš. Starter već ima tabelu |
+| Lista | Dio 1, tačka **1**. Korak po korak, šta se mijenja i odakle: Dio 2, **Lista, HTML** i **Lista, CSS** | `posiljke/posiljke.component.html` | stranicu ne brišeš. Starter već ima tabelu |
 | Dodavanje | Dio 1, tačka **3** | `posiljke/posiljka-add/posiljka-add.component.html` | obrišeš `posiljka-add works!` i zalijepiš cijeli blok |
 | Uređivanje | Dio 1, tačka **4** | `posiljke/posiljka-edit/posiljka-edit.component.html` | obrišeš `posiljka-edit works!` i zalijepiš cijeli blok |
 
@@ -1062,11 +1062,29 @@ $hover-bg: rgba(73, 118, 181, 0.04);
 
 ## Lista, HTML
 
-Starter već ima cijelu stranicu: naslov, dugme „Nova pošiljka", napomenu, tabelu od 7 kolona, bedž statusa i prazan red „Nema pošiljki."
+Fajl: `posiljke/posiljke.component.html`.
 
-To **ne brišeš** i **ne crtaš iznova**.
+Cijela stranica već stoji u starteru. CSS `posiljke.component.scss` ne otvaraš. U HTML ulaze tačno četiri dopune. Raspored gledaš na listi proizvoda, `catalogs/products/products.component.html`. Tekst koji upisuješ je u tačkama ispod. Gotov fajl poslije izmjena je Dio 1, tačka 1. HTML proizvoda ne lijepiš: tamo je `| translate`, polje za kucanje, a red se zove `product`.
 
-U taj fajl ulaze tačno četiri izmjene.
+### Šta starter već crta
+
+Tri dijela. Njih ne diraš.
+
+**Kartica naslova.** Plavi kvadrat sa ikonom kamiona `local_shipping`, naslov „Pošiljke", i desno dugme „Nova pošiljka". To dugme već ima `(click)="onCreate()"`. Drugi klik mu ne dodaješ.
+
+**Napomena.** `info-card` sa tekstom „Ovdje raditi ispitni zadatak - prvi modul". U SCSS-u liste nema pravila za `.info-card`. Ostaje kako jeste.
+
+**Tabela od 7 kolona.** Broj pošiljke, narudžba, status, cijena, datum slanja, datum dostave, akcije. Imena kolona (`shipmentNumber`, `orderReferenceNumber`, …) i `colspan="7"` na redu „Nema pošiljki." ostaju.
+
+Bedž statusa ostaje ovakav:
+
+```html
+<span class="status-badge status-{{ item.status }}">
+  {{ item.statusNaziv }}
+</span>
+```
+
+`item.status` je broj 1–5 i služi samo imenu klase (`status-4`). Na bedžu se vidi riječ iz `statusNaziv` (`Dostavljena`). Ako ispišeš `status`, na bedžu stoji `4`.
 
 ### Izmjena 1 — filter narudžbe
 
@@ -1117,6 +1135,8 @@ Ti dodaš `mat-form-field` ispred dugmeta. Dugme ostaje.
 
 `.actions-container` je već flex. Zato select i dugme stoje u jednom redu. Na uskom ekranu SCSS ih slaže jedno ispod drugog.
 
+Odakle raspored: na listi proizvoda `mat-form-field` klase `search-field` već stoji u istom `actions-container`, pored dugmeta. Taj fajl ne lijepiš. Kod proizvoda je `input` i `| translate`. Kod pošiljke je `mat-select`, i taj blok je ovdje iznad.
+
 ### Izmjena 2 — paginator
 
 Mjesto: odmah ispod `</table>`, još **unutra** u `<div class="mat-elevation-z8">`.
@@ -1140,6 +1160,8 @@ Ti dodaš jednu liniju:
 ```
 
 `[vm]="this"` predaje ovu komponentu traci. Traka već postoji u projektu. Ne praviš `mat-paginator` i ne pišeš njen CSS.
+
+Ista linija već stoji na dnu tabele proizvoda. Odavde je uzimaš.
 
 `colspan="7"` na praznom redu ostaje. Sedam kolona se ne mijenja.
 
@@ -1170,6 +1192,8 @@ Ti dodaš samo `(click)`:
 ```
 
 Ime je `item`, jer iznad piše `*matCellDef="let item"`. `onEdit(row)` ne prolazi: `row` postoji samo na `<tr>`.
+
+Na listi proizvoda klik već postoji, `(click)="onEdit(product)"` i `onDelete(product)`. Oblik je isti. Argument je drugačiji, jer se tamo red zove `product`, a ovdje `item`.
 
 ### Izmjena 4 — cijena i datumi
 
@@ -1211,6 +1235,8 @@ Poslije:
 
 Zagrada na datumu dostave je obavezna. Bez nje pipe ne sredi vrijednost prije crtice, pa dostavljena pošiljka pokaže ISO string (`2026-09-21T...`).
 
+Odakle pipe: na proizvodima cijena već ide kroz `number`, ali format je `'1.2-2'` (dvije decimale). Pošiljka traži `'1.1-1'`. Datumski pipe na toj listi nema. Ove tri linije kucaš odavde. Inline stil cijene (`font-weight: 600`, boja `#4976b5`) ostaje.
+
 ### Šta na listi ostaje netaknuto
 
 - naslov, ikona kamiona, kartica
@@ -1222,17 +1248,20 @@ Zagrada na datumu dostave je obavezna. Bez nje pipe ne sredi vrijednost prije cr
 
 ## Lista, CSS
 
-**Nema izmjene.**
+**Nema izmjene.** Fajl ne kopiraš od proizvoda.
 
-HTML koji si dodala već ima klase u ovom fajlu:
+HTML koji si dodala već ima klase u ovom fajlu. Klase za filter i bedž već su u starteru, iako filter u HTML-u još ne stoji.
 
 | Klasa u HTML-u | Šta SCSS već radi |
 |----------------|-------------------|
+| `.container` | pozadina, padding 24px, max širina 1400px |
+| `.header-card`, `.title-section`, `.title-icon` | bijela kartica, plavi kvadrat, ikona kamiona |
+| `.actions-container` | filter i dugme u jednom redu, razmak 16px |
 | `.search-field` | širina filtera 280px, na telefonu 100% |
+| `button[mat-raised-button]` | plavo dugme „Nova pošiljka" |
 | `.status-badge` | oblik bedža |
 | `.status-1` … `.status-5` | boja: Kreirana, U skladištu, U dostavi, Dostavljena, Otkazana |
-| `.actions-container` | filter i dugme u jednom redu |
-| `button[mat-raised-button]` | plavo dugme „Nova pošiljka" |
+| `table` | širina 100% |
 
 Paginatora nema u ovom SCSS-u. On ima svoj fajl. Ne dodaješ mu stil.
 
