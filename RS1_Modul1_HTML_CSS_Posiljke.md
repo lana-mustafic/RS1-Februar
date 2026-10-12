@@ -26,12 +26,12 @@ Ikona u naslovu ostaje korpa (`add_shopping_cart`), jer je fajl od proizvoda. Na
 
 ### HTML
 
-HTML proizvoda **ne lijepiš**. Tamo su `| translate` i polja proizvoda (naziv, opis, cijena, kategorija). Tekst za pošiljku je već u ovom fajlu, u Dijelu 1.
+Listu proizvoda ne lijepiš u listu pošiljki. Dodavanje kopiraš iz `products-add.component.html` i preimenuješ polja. `| translate` i naziv, opis, cijena, kategorija ne ostaju.
 
 | Šta | Odakle uzimaš kod | U koji fajl | Kako |
 |-----|-------------------|-------------|------|
 | Lista | Dio 1, tačka **1**. Korak po korak, šta se mijenja i odakle: Dio 2, **Lista, HTML** i **Lista, CSS** | `posiljke/posiljke.component.html` | stranicu ne brišeš. Starter već ima tabelu |
-| Dodavanje | Dio 1, tačka **3** | `posiljke/posiljka-add/posiljka-add.component.html` | obrišeš `posiljka-add works!` i zalijepiš cijeli blok |
+| Dodavanje | uzor u projektu: `catalogs/products/products-add/products-add.component.html`. Gotov fajl i šta preimenuješ: Dio 2, **Dodavanje, HTML** | `posiljke/posiljka-add/posiljka-add.component.html` | obrišeš `posiljka-add works!` i zalijepiš cijeli fajl |
 | Uređivanje | Dio 1, tačka **4** | `posiljke/posiljka-edit/posiljka-edit.component.html` | obrišeš `posiljka-edit works!` i zalijepiš cijeli blok |
 
 Ako hoćeš da vidiš raspored prije lijepljenja, otvori ove fajlove i **samo gledaj**. Njihov tekst ne ide u pošiljke.
@@ -39,7 +39,7 @@ Ako hoćeš da vidiš raspored prije lijepljenja, otvori ove fajlove i **samo gl
 | Gledaš, ne kopiraš | Šta tu vidiš |
 |--------------------|--------------|
 | `catalogs/products/products.component.html` | filter u `actions-container` pored dugmeta, cijena sa `number` pipe, ispod tabele `<app-fit-paginator-bar [vm]="this" />` |
-| `catalogs/products/products-add/products-add.component.html` | omotač forme: `container`, `header-card`, `form-card`, `error-banner`, `loading-overlay`, `form-row`, `full-width`, `half-width`, `form-actions` |
+| `catalogs/products/products-add/products-add.component.html` | cijeli HTML dodavanja. Kopiraš ga i preimenuješ polja, kako piše u Dijelu 2 |
 | `catalogs/products/products-edit/products-edit.component.html` | ista forma, drugi naslov. Kod pošiljke je tačka 4, ne ovaj fajl |
 
 ---
@@ -1275,7 +1275,190 @@ Starter, cijeli fajl:
 <p>posiljka-add works!</p>
 ```
 
-To zamijeniš cijelim kodom iz dijela 1, tačka 3. Nema „malo dopuni". Cijeli fajl je nov.
+To zamijeniš cijelim fajlom. Nema „malo dopuni".
+
+### Uzor u projektu
+
+Na ispitu otvoriš:
+
+`catalogs/products/products-add/products-add.component.html`
+
+To je cijeli raspored: `container`, naslov, `form-card`, greška, spinner, polje preko cijele širine, red od dva polja, dugmad. `| translate` i polja proizvoda ne ostaju. Kopiraš fajl, pa zamijeniš imena kako je u tabeli ispod.
+
+Uzor, cijeli fajl:
+
+```html
+<div class="container">
+  <div class="header-card mat-elevation-z2">
+    <h1>{{ 'PRODUCTS.ADD.TITLE' | translate }}</h1>
+  </div>
+
+  <div class="form-card mat-elevation-z2">
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+      <div *ngIf="errorMessage" class="error-banner">
+        <mat-icon>error</mat-icon>
+        <span>{{ errorMessage }}</span>
+      </div>
+
+      <div *ngIf="isLoading" class="loading-overlay">
+        <mat-spinner diameter="50"></mat-spinner>
+        <p>{{ 'PRODUCTS.ADD.SAVING' | translate }}</p>
+      </div>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>{{ 'PRODUCTS.FORM.NAME' | translate }}</mat-label>
+        <input matInput formControlName="name" />
+        <mat-icon matSuffix>inventory_2</mat-icon>
+        <mat-error *ngIf="hasError('name')">
+          {{ getErrorMessage('name') }}
+        </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>{{ 'PRODUCTS.FORM.DESCRIPTION' | translate }}</mat-label>
+        <textarea matInput formControlName="description" rows="4"></textarea>
+        <mat-icon matSuffix>description</mat-icon>
+        <mat-error *ngIf="hasError('description')">
+          {{ getErrorMessage('description') }}
+        </mat-error>
+      </mat-form-field>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>{{ 'PRODUCTS.FORM.PRICE' | translate }}</mat-label>
+          <input matInput type="number" formControlName="price" step="0.01" />
+          <span matTextPrefix>KM&nbsp;</span>
+          <mat-icon matSuffix>payments</mat-icon>
+          <mat-error *ngIf="hasError('price')">
+            {{ getErrorMessage('price') }}
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>{{ 'PRODUCTS.FORM.CATEGORY' | translate }}</mat-label>
+          <mat-select formControlName="categoryId">
+            <mat-option *ngFor="let category of categories" [value]="category.id">
+              {{ category.name }}
+            </mat-option>
+          </mat-select>
+          <mat-icon matSuffix>category</mat-icon>
+          <mat-error *ngIf="hasError('categoryId')">
+            {{ getErrorMessage('categoryId') }}
+          </mat-error>
+        </mat-form-field>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" mat-stroked-button (click)="onCancel()" [disabled]="isLoading">
+          <mat-icon>close</mat-icon>
+          {{ 'PRODUCTS.FORM.CANCEL' | translate }}
+        </button>
+        <button type="submit" mat-raised-button color="primary" [disabled]="form.invalid || isLoading">
+          <mat-icon>save</mat-icon>
+          {{ 'PRODUCTS.FORM.SAVE' | translate }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+```
+
+| U proizvodima | Kod tebe |
+|---------------|----------|
+| `PRODUCTS.ADD.TITLE` | tekst `Nova pošiljka` |
+| `PRODUCTS.ADD.SAVING` | tekst `Snimanje...` |
+| polje `name` | `shipmentNumber`, `maxlength="20"`, dvije greške: `required` i `maxlength` |
+| polje `description` (textarea) | brišeš. Na to mjesto ide rečenica `<p>Status i datum slanja postavljaju se automatski.</p>` |
+| `price`, `step="0.01"` | `shippingCost`, `step="0.1"`, greške `required` i `min` |
+| `categoryId`, `categories`, `category.id`, `category.name` | `orderId`, `orders`, `o.id`, `o.referenceNumber` |
+| `hasError('name')` i `getErrorMessage(...)` | `hasError('shipmentNumber', 'required')` i svoj tekst. Isto za ostala polja |
+| `mat-icon matSuffix` i `placeholder` | brišeš |
+| `PRODUCTS.FORM.CANCEL` / `SAVE` | tekst `Odustani` / `Sačuvaj` |
+| `(ngSubmit)="onSubmit()"`, `onCancel()`, `form.invalid \|\| isLoading` | ostaje isto |
+
+`KM&nbsp;` ostaje na cijeni. Opis proizvoda nema par na pošiljci. Status i datumi na dodavanju ne postoje.
+
+Kako treba izgledati `posiljka-add.component.html`:
+
+```html
+<div class="container">
+  <div class="header-card mat-elevation-z2">
+    <h1>Nova pošiljka</h1>
+  </div>
+
+  <div class="form-card mat-elevation-z2">
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+      <div *ngIf="errorMessage" class="error-banner">
+        <mat-icon>error</mat-icon>
+        <span>{{ errorMessage }}</span>
+      </div>
+
+      <div *ngIf="isLoading" class="loading-overlay">
+        <mat-spinner diameter="50"></mat-spinner>
+        <p>Snimanje...</p>
+      </div>
+
+      <p>Status i datum slanja postavljaju se automatski.</p>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Broj pošiljke</mat-label>
+        <input matInput formControlName="shipmentNumber" maxlength="20" />
+        <mat-error *ngIf="hasError('shipmentNumber', 'required')">
+          Broj pošiljke je obavezan.
+        </mat-error>
+        <mat-error *ngIf="hasError('shipmentNumber', 'maxlength')">
+          Najviše 20 karaktera.
+        </mat-error>
+      </mat-form-field>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>Cijena dostave</mat-label>
+          <input matInput type="number" formControlName="shippingCost" step="0.1" />
+          <span matTextPrefix>KM&nbsp;</span>
+          <mat-error *ngIf="hasError('shippingCost', 'required')">
+            Cijena je obavezna.
+          </mat-error>
+          <mat-error *ngIf="hasError('shippingCost', 'min')">
+            Cijena mora biti veća od 0.
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>Narudžba</mat-label>
+          <mat-select formControlName="orderId">
+            <mat-option *ngFor="let o of orders" [value]="o.id">
+              {{ o.referenceNumber }}
+            </mat-option>
+          </mat-select>
+          <mat-error *ngIf="hasError('orderId', 'required')">
+            Narudžba je obavezna.
+          </mat-error>
+        </mat-form-field>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" mat-stroked-button (click)="onCancel()" [disabled]="isLoading">
+          <mat-icon>close</mat-icon>
+          Odustani
+        </button>
+
+        <button
+          type="submit"
+          mat-raised-button
+          color="primary"
+          [disabled]="form.invalid || isLoading"
+        >
+          <mat-icon>save</mat-icon>
+          Sačuvaj
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+```
+
+Isti fajl je i u Dijelu 1, tačka 3.
 
 Blokovi, odozgo:
 
