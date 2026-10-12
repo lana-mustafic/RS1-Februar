@@ -4,31 +4,49 @@ Ovaj fajl je **samo izgled** tri stranice: lista, dodavanje, uređivanje.
 
 Backend, TypeScript i API su u `RS1_Modul1_Vodic.md`. Ovdje ih nema.
 
-Čitaj ovako:
+Na ispitu ne listaš ovaj fajl. Ova tabela je cijeli postupak. Ispod nje, **Dio 1** je gotov kod koji lijepiš. **Dio 2** objašnjava šta je starter već imao.
 
-1. **Dio 1** — cijeli kod koji na kraju stoji u fajlu. To prepisuješ ili kopiraš.
-2. **Dio 2** — šta je starter već imao, i šta si ti dodala ili izmijenila. To čitaš da razumiješ.
+Sve putanje kreću od `rs1-frontend-2025-26/src/app/modules/admin/`.
 
-CSS liste **ne diraš**. CSS formi **ne kucaš**: kopiraš gotov fajl od proizvoda.
+## Odakle šta kopiraš
 
----
+### CSS
 
-## Mapa fajlova
+CSS liste **ne diraš** i **ne kopiraš**. CSS formi **ne kucaš** iz bloka u tački 5. Kopiraš gotov fajl proizvoda, cijeli, i ništa u njemu ne mijenjaš.
 
-| Fajl | Starter | Šta radiš |
-|------|---------|-----------|
-| `posiljke/posiljke.component.html` | gotova tabela | 4 male izmjene (filter, paginator, klikovi, pipe) |
-| `posiljke/posiljke.component.scss` | gotov | **ništa** |
-| `posiljke/posiljka-add/posiljka-add.component.html` | jedna rečenica | zamijeniš **cijeli** fajl |
-| `posiljke/posiljka-add/posiljka-add.component.scss` | **ne postoji** | kopija CSS-a proizvoda |
-| `posiljke/posiljka-edit/posiljka-edit.component.html` | jedna rečenica | zamijeniš **cijeli** fajl |
-| `posiljke/posiljka-edit/posiljka-edit.component.scss` | **ne postoji** | ista kopija CSS-a |
+| Šta | Obrazac — otvori i kopiraj cijeli fajl | Zalijepi u | Unutra |
+|-----|----------------------------------------|------------|--------|
+| Lista | nema obrasca. Već stoji u starteru: `posiljke/posiljke.component.scss` | nigdje | ne otvaraj radi pisanja |
+| Dodavanje | `catalogs/products/products-add/products-add.component.scss` | `posiljke/posiljka-add/posiljka-add.component.scss` | ništa. Fajl u starteru ne postoji, ti ga napraviš kao kopiju |
+| Uređivanje | **isti** `products-add.component.scss`. Ne `products-edit.component.scss` | `posiljke/posiljka-edit/posiljka-edit.component.scss` | ništa |
 
-Putanja od `src/app/modules/admin/`.
+Ako si CSS dodavanja već kopirala, uređivanje možeš kopirati iz tog fajla. Sadržaj je isti.
+
+Ikona u naslovu ostaje korpa (`add_shopping_cart`), jer je fajl od proizvoda. Na ispitu je ostavi.
+
+### HTML
+
+HTML proizvoda **ne lijepiš**. Tamo su `| translate` i polja proizvoda (naziv, opis, cijena, kategorija). Tekst za pošiljku je već u ovom fajlu, u Dijelu 1.
+
+| Šta | Odakle uzimaš kod | U koji fajl | Kako |
+|-----|-------------------|-------------|------|
+| Lista | Dio 1, tačka **1**. Kraće: samo četiri izmjene iz Dijela 2 (filter, paginator, klikovi, pipe) | `posiljke/posiljke.component.html` | stranicu ne brišeš. Starter već ima tabelu |
+| Dodavanje | Dio 1, tačka **3** | `posiljke/posiljka-add/posiljka-add.component.html` | obrišeš `posiljka-add works!` i zalijepiš cijeli blok |
+| Uređivanje | Dio 1, tačka **4** | `posiljke/posiljka-edit/posiljka-edit.component.html` | obrišeš `posiljka-edit works!` i zalijepiš cijeli blok |
+
+Ako hoćeš da vidiš raspored prije lijepljenja, otvori ove fajlove i **samo gledaj**. Njihov tekst ne ide u pošiljke.
+
+| Gledaš, ne kopiraš | Šta tu vidiš |
+|--------------------|--------------|
+| `catalogs/products/products.component.html` | filter u `actions-container` pored dugmeta, cijena sa `number` pipe, ispod tabele `<app-fit-paginator-bar [vm]="this" />` |
+| `catalogs/products/products-add/products-add.component.html` | omotač forme: `container`, `header-card`, `form-card`, `error-banner`, `loading-overlay`, `form-row`, `full-width`, `half-width`, `form-actions` |
+| `catalogs/products/products-edit/products-edit.component.html` | ista forma, drugi naslov. Kod pošiljke je tačka 4, ne ovaj fajl |
 
 ---
 
 # Dio 1 — cijeli kod
+
+HTML liste, dodavanja i uređivanja lijepiš **odavde** (tačke 1, 3 i 4). CSS formi ne prepisuješ iz tačke 5: taj fajl kopiraš iz `products-add.component.scss`, kako piše u tabeli na vrhu.
 
 ## 1. Lista — cijeli HTML
 
