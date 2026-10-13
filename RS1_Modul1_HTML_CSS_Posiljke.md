@@ -1797,6 +1797,114 @@ this.form.patchValue({
 
 `orderId` sa GET-a jeste `orderId`. Njega ne preimenuješ. `status` je broj `1`…`5`, ne riječ `Kreirana`.
 
+### Prazan status, krivi `maxlength` i širina polja
+
+Ovo su tri greške koje ostanu kad se forma za dodavanje prepiše u uređivanje, pa se status samo „nalijepi“ ispod reda.
+
+#### 1. Spisak statusa je prazan
+
+HTML već ima:
+
+```html
+<mat-select formControlName="status">
+  <mat-option *ngFor="let s of statuses" [value]="s.value">
+    {{ s.label }}
+  </mat-option>
+</mat-select>
+```
+
+`statuses` mora postojati na klasi. U `posiljka-edit.component.ts` ga nema, pa `*ngFor` nema šta da ispiše i nijedan status se ne može izabrati. `formControlName="status"` je ispravan. Prazan je niz, ne ime kontrole.
+
+U klasu, ispod `orders`, dodaj cijeli niz. `OrderShipmentStatusType` je već uvezen. `value` je broj koji ide na server. `label` je samo riječ na ekranu.
+
+```ts
+orders: ListOrdersQueryDto[] = [];
+
+statuses = [
+  { value: OrderShipmentStatusType.Kreirana, label: 'Kreirana' },
+  { value: OrderShipmentStatusType.USkladistu, label: 'U skladištu' },
+  { value: OrderShipmentStatusType.UDostavi, label: 'U dostavi' },
+  { value: OrderShipmentStatusType.Dostavljena, label: 'Dostavljena' },
+  { value: OrderShipmentStatusType.Otkazana, label: 'Otkazana' }
+];
+```
+
+| `value` | Broj u JSON-u | Šta piše u spisku |
+|---------|---------------|-------------------|
+| `OrderShipmentStatusType.Kreirana` | 1 | Kreirana |
+| `OrderShipmentStatusType.USkladistu` | 2 | U skladištu |
+| `OrderShipmentStatusType.UDostavi` | 3 | U dostavi |
+| `OrderShipmentStatusType.Dostavljena` | 4 | Dostavljena |
+| `OrderShipmentStatusType.Otkazana` | 5 | Otkazana |
+
+`[value]="s.value"` ostaje. `[value]="s.label"` bi poslalo `"Dostavljena"` i snimanje padne na 400.
+
+#### 2. Poruka za dužinu se ne vidi
+
+U broju pošiljke stoji:
+
+```html
+<mat-error *ngIf="hasError('shipmentNumber','maxlength(20)')">
+  Broj pošiljke može imati maksimalno 20 karaktera.
+</mat-error>
+```
+
+`Validators.maxLength(20)` u `fb.group` napravi grešku čiji je ključ `maxlength`. Zagrada i broj nisu dio ključa. `hasError` traži `'maxlength(20)'`, taj ključ ne postoji, pa se rečenica nikad ne prikaže. `maxlength="20"` na inputu i dalje siječe unos u pregledniku. To je atribut HTML-a, nije ime greške.
+
+Cijelo polje, ispravno:
+
+```html
+<mat-form-field appearance="outline" class="full-width">
+  <mat-label>Broj pošiljke</mat-label>
+  <input matInput formControlName="shipmentNumber" maxlength="20" />
+  <mat-error *ngIf="hasError('shipmentNumber', 'required')">
+    Broj pošiljke je obavezan.
+  </mat-error>
+  <mat-error *ngIf="hasError('shipmentNumber', 'maxlength')">
+    Broj pošiljke može imati maksimalno 20 karaktera.
+  </mat-error>
+</mat-form-field>
+```
+
+#### 3. Status ima `half-width`, a nije u redu
+
+Cijena i narudžba su unutar `form-row`. Tu `half-width` znači „uzmi pola reda“. Status je izvan tog diva, a ipak ima `half-width`. Forma je stupac. `flex: 1` tada raste u visinu, ne u pola širine, i polje se izduži.
+
+Status ide odmah ispod reda, preko cijele širine. Klasa je `full-width`, ista kao na broju pošiljke. Ne otvaraj novi `form-row` za jedno polje.
+
+Cijeli blok, umjesto onog sa `half-width`:
+
+```html
+<mat-form-field appearance="outline" class="full-width">
+  <mat-label>Status</mat-label>
+  <mat-select formControlName="status">
+    <mat-option *ngFor="let s of statuses" [value]="s.value">
+      {{ s.label }}
+    </mat-option>
+  </mat-select>
+  <mat-error *ngIf="hasError('status', 'required')">
+    Status je obavezno polje.
+  </mat-error>
+</mat-form-field>
+```
+
+#### 4. Datuma nema
+
+Ispod statusa nema ništa do dugmadi. Datum slanja i datum dostave nisu kontrole. Nema `formControlName` i nema `mat-form-field`. Čitaju se sa `model`, koji `loadData` napuni iz `getById`.
+
+Cijela tri reda, odmah ispod statusa, prije `form-actions`:
+
+```html
+<p>Datum slanja: {{ model?.shippedAtUtc | date:'dd.MM.yyyy' }}</p>
+<p>Datum dostave: {{ (model?.deliveredAtUtc | date:'dd.MM.yyyy') || '-' }}</p>
+
+<p>Ako status postane Dostavljena, datum dostave se postavlja automatski na serveru.</p>
+```
+
+`model?.` jer je `model` prazan dok se pošiljka ne učita. Zagrada i `|| '-'` pretvore prazan datum dostave u crtu. Kad u spisku odabereš Dostavljena, crta na ovoj stranici ostane. Novi datum vidiš na listi, nakon Sačuvaj. Server ga upiše. Ova dva `<p>` ga ne računaju i ne šalju.
+
+Broj, cijena, narudžba, Otkaži i Sačuvaj u tom HTML-u su već dobro vezani: `shipmentNumber`, `shippingCost`, `orderId`, `type="button"` na Otkaži, `type="submit"` na Sačuvaj.
+
 ## Uređivanje, CSS
 
 Isti postupak kao dodavanje. Kopiraj **isti** `products-add.component.scss` u:
