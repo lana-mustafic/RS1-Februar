@@ -32,7 +32,7 @@ Listu proizvoda ne lijepiš u listu pošiljki. Dodavanje kopiraš iz `products-a
 |-----|-------------------|-------------|------|
 | Lista | Dio 1, tačka **1**. Korak po korak, šta se mijenja i odakle: Dio 2, **Lista, HTML** i **Lista, CSS** | `posiljke/posiljke.component.html` | stranicu ne brišeš. Starter već ima tabelu |
 | Dodavanje | uzor u projektu: `catalogs/products/products-add/products-add.component.html`. Gotov fajl i šta preimenuješ: Dio 2, **Dodavanje, HTML** | `posiljke/posiljka-add/posiljka-add.component.html` | obrišeš `posiljka-add works!` i zalijepiš cijeli fajl |
-| Uređivanje | Dio 1, tačka **4** | `posiljke/posiljka-edit/posiljka-edit.component.html` | obrišeš `posiljka-edit works!` i zalijepiš cijeli blok |
+| Uređivanje | kreneš od gotovog HTML-a dodavanja, ne od `products-edit`. Šta dodaš: Dio 2, **Uređivanje, HTML**. Cijeli kod za lijepljenje: Dio 1, tačka **4** | `posiljke/posiljka-edit/posiljka-edit.component.html` | obrišeš `posiljka-edit works!` i zalijepiš cijeli fajl |
 
 Ako hoćeš da vidiš raspored prije lijepljenja, otvori ove fajlove i **samo gledaj**. Njihov tekst ne ide u pošiljke.
 
@@ -40,7 +40,7 @@ Ako hoćeš da vidiš raspored prije lijepljenja, otvori ove fajlove i **samo gl
 |--------------------|--------------|
 | `catalogs/products/products.component.html` | filter u `actions-container` pored dugmeta, cijena sa `number` pipe, ispod tabele `<app-fit-paginator-bar [vm]="this" />` |
 | `catalogs/products/products-add/products-add.component.html` | cijeli HTML dodavanja. Kopiraš ga i preimenuješ polja, kako piše u Dijelu 2 |
-| `catalogs/products/products-edit/products-edit.component.html` | ista forma, drugi naslov. Kod pošiljke je tačka 4, ne ovaj fajl |
+| `catalogs/products/products-edit/products-edit.component.html` | ista kartica kao dodavanje, drugi naslov. Nema statusa ni datuma. Kod pošiljke ne lijepiš odavde. Kreneš od svog `posiljka-add.component.html` |
 
 ---
 
@@ -503,9 +503,16 @@ Starter ima samo `<p>posiljka-add works!</p>`. To obrišeš i zalijepiš ovo.
 
 Fajl: `src/app/modules/admin/posiljke/posiljka-edit/posiljka-edit.component.html`
 
-Starter ima samo `<p>posiljka-edit works!</p>`. To obrišeš i zalijepiš ovo.
+Starter ima samo `<p>posiljka-edit works!</p>`. To obrišeš i zalijepiš cijeli blok ispod. Dok ta rečenica stoji na ekranu, ovaj fajl nije zamijenjen. TypeScript može učitati pošiljku, a stranica i dalje pokazuje samo tu rečenicu.
 
-Isti raspored kao dodavanje, plus status i dva datuma.
+Ovo je gotov HTML dodavanja, sa četiri izmjene:
+
+1. Naslov je `Uredi pošiljku`.
+2. Rečenice „Status i datum slanja postavljaju se automatski." nema.
+3. Ispod cijene i narudžbe ide padajući spisak Status.
+4. Ispod statusa idu dva obična paragrafa, datum slanja i datum dostave, pa rečenica da server sam upiše datum dostave.
+
+Korak po korak, šta se mijenja i zašto Sačuvaj ostane ugašen: Dio 2, **Uređivanje, HTML**.
 
 ```html
 <div class="container">
@@ -1535,19 +1542,173 @@ Starter, cijeli fajl:
 <p>posiljka-edit works!</p>
 ```
 
-Zamijeniš ga cijelim kodom iz dijela 1, tačka 4.
+To zamijeniš cijelim fajlom. Nema „malo dopuni". Ako na `/admin/posiljke/5/edit` još piše `posiljka-edit works!`, HTML nije zalijepljen. `loadData` u TypeScriptu može raditi, a ekran i dalje pokazuje samo tu rečenicu.
 
-To je forma za dodavanje, plus ovo:
+Ne otvaraš `products-edit.component.html` da ga preimenuješ. Tamo nema statusa ni datuma, a ima `| translate`, naziv, opis i kategoriju. Kreneš od **svog** gotovog `posiljka-add.component.html` i uradiš izmjene iz tabele.
 
 | Na dodavanju | Na uređivanju |
 |--------------|----------------|
 | naslov „Nova pošiljka" | naslov „Uredi pošiljku" |
-| rečenica da se status i datum slanja postavljaju automatski | te rečenice **nema** |
-| nema statusa | padajući spisak Status |
-| nema datuma | dva `<p>`: datum slanja i datum dostave |
-| — | rečenica da server sam upiše datum dostave |
+| rečenica „Status i datum slanja postavljaju se automatski." | tu rečenicu **brišeš** |
+| nema statusa | novi padajući spisak, `formControlName="status"` |
+| nema datuma | dva `<p>`, nisu inputi |
+| — | rečenica da server sam upiše datum dostave kad status postane Dostavljena |
+| broj, cijena, narudžba, Odustani, Sačuvaj | ostaju isti, ista imena kontrola |
 
-Status, cijeli novi blok:
+Kako treba izgledati `posiljka-edit.component.html`. Ovo je cijeli fajl. Isti je i u Dijelu 1, tačka 4.
+
+```html
+<div class="container">
+  <div class="header-card mat-elevation-z2">
+    <h1>Uredi pošiljku</h1>
+  </div>
+
+  <div class="form-card mat-elevation-z2">
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+      <div *ngIf="errorMessage" class="error-banner">
+        <mat-icon>error</mat-icon>
+        <span>{{ errorMessage }}</span>
+      </div>
+
+      <div *ngIf="isLoading" class="loading-overlay">
+        <mat-spinner diameter="50"></mat-spinner>
+        <p>Snimanje...</p>
+      </div>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Broj pošiljke</mat-label>
+        <input matInput formControlName="shipmentNumber" maxlength="20" />
+        <mat-error *ngIf="hasError('shipmentNumber', 'required')">
+          Broj pošiljke je obavezan.
+        </mat-error>
+        <mat-error *ngIf="hasError('shipmentNumber', 'maxlength')">
+          Najviše 20 karaktera.
+        </mat-error>
+      </mat-form-field>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>Cijena dostave</mat-label>
+          <input
+            matInput
+            type="number"
+            formControlName="shippingCost"
+            step="0.1"
+          />
+          <span matTextPrefix>KM&nbsp;</span>
+          <mat-error *ngIf="hasError('shippingCost', 'required')">
+            Cijena je obavezna.
+          </mat-error>
+          <mat-error *ngIf="hasError('shippingCost', 'min')">
+            Cijena mora biti veća od 0.
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>Narudžba</mat-label>
+          <mat-select formControlName="orderId">
+            <mat-option *ngFor="let o of orders" [value]="o.id">
+              {{ o.referenceNumber }}
+            </mat-option>
+          </mat-select>
+          <mat-error *ngIf="hasError('orderId', 'required')">
+            Narudžba je obavezna.
+          </mat-error>
+        </mat-form-field>
+      </div>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Status</mat-label>
+        <mat-select formControlName="status">
+          <mat-option *ngFor="let s of statuses" [value]="s.value">
+            {{ s.label }}
+          </mat-option>
+        </mat-select>
+        <mat-error *ngIf="hasError('status', 'required')">
+          Status je obavezan.
+        </mat-error>
+      </mat-form-field>
+
+      <p>Datum slanja: {{ model?.shippedAtUtc | date:'dd.MM.yyyy' }}</p>
+      <p>Datum dostave: {{ (model?.deliveredAtUtc | date:'dd.MM.yyyy') || '-' }}</p>
+
+      <p>Ako status postane Dostavljena, datum dostave se postavlja automatski na serveru.</p>
+
+      <div class="form-actions">
+        <button type="button" mat-stroked-button (click)="onCancel()" [disabled]="isLoading">
+          <mat-icon>close</mat-icon>
+          Odustani
+        </button>
+
+        <button
+          type="submit"
+          mat-raised-button
+          color="primary"
+          [disabled]="form.invalid || isLoading"
+        >
+          <mat-icon>save</mat-icon>
+          Sačuvaj
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+```
+
+Blokovi, odozgo:
+
+| Blok | Klasa ili veza | Uloga |
+|------|----------------|--------|
+| Omotač | `container` | pozadina i širina stranice. SCSS je kopija add forme |
+| Naslov | `header-card` | kartica, unutra `Uredi pošiljku` |
+| Kartica forme | `form-card` | bijela kartica oko polja |
+| Forma | `[formGroup]="form"` | veže polja na `FormGroup` iz TypeScripta |
+| Slanje | `(ngSubmit)="onSubmit()"` | zove `onSubmit`, ne `save()`. Baza tek onda zove `save()` |
+| Greška | `error-banner` | vidi se samo ako postoji `errorMessage` |
+| Učitavanje | `loading-overlay` | spinner dok traje učitavanje ili snimanje |
+| Broj | `full-width` + `shipmentNumber` | jedna kolona, max 20 znakova |
+| Red | `form-row` | cijena i narudžba jedna pored druge |
+| Cijena | `half-width` + `shippingCost` | broj, prefiks `KM` |
+| Narudžba | `half-width` + `orderId` | padajući spisak, vrijednost je `o.id`, tekst je `o.referenceNumber` |
+| Status | `full-width` + `status` | padajući spisak, vrijednost je broj `s.value` |
+| Datumi | običan `<p>` | čitaju `model`, nisu kontrole forme |
+| Info | običan `<p>` | „Ako status postane Dostavljena…" To **nije** polje |
+| Dugmad | `form-actions` | Odustani lijevo od Sačuvaj, poravnata desno |
+
+Četiri kontrole. Ime u HTML-u mora biti isto slovo po slovo kao ključ u `fb.group`. Angular ne izjednačava `ShippingCost` i `shippingCost`.
+
+| `formControlName` | Ključ u `fb.group` | Šta korisnik mijenja |
+|-------------------|--------------------|----------------------|
+| `shipmentNumber` | `shipmentNumber` | broj pošiljke |
+| `shippingCost` | `shippingCost` | cijena |
+| `orderId` | `orderId` | narudžba |
+| `status` | `status` | status |
+
+`hasError` gleda isti naziv. Druga riječ je tip greške, malim slovima:
+
+| Polje | Greška | Poziv |
+|-------|--------|-------|
+| broj | prazno | `hasError('shipmentNumber', 'required')` |
+| broj | predugo | `hasError('shipmentNumber', 'maxlength')` |
+| cijena | prazna | `hasError('shippingCost', 'required')` |
+| cijena | nula ili manje | `hasError('shippingCost', 'min')` |
+| narudžba | nije izabrana | `hasError('orderId', 'required')` |
+| status | nije izabran | `hasError('status', 'required')` |
+
+`hasError('shipmentNumber', 'maxlength(20)')` ne pokaže ništa. Ključ je `maxlength`. `hasError('ShippingCost', ...)` i `hasError('categoryId', ...)` gledaju kontrole kojih nema. Na uređivanju kategorija ne postoji.
+
+Dugmad:
+
+| Dugme | `type` | Klik |
+|-------|--------|------|
+| Odustani | `button` | `(click)="onCancel()"`. Da je `submit`, klik bi pokušao snimanje |
+| Sačuvaj | `submit` | ide kroz `(ngSubmit)`, dakle `onSubmit()` |
+
+`[disabled]="form.invalid || isLoading"` drži Sačuvaj ugašen dok je bilo koje od četiri polja prazno ili dok traje snimanje. Klik se tada uopšte ne desi. Nema toasta i nema `PUT`.
+
+### Status
+
+Cijeli novi blok, ide ispod reda sa cijenom i narudžbom:
 
 ```html
 <mat-form-field appearance="outline" class="full-width">
@@ -1563,20 +1724,78 @@ Status, cijeli novi blok:
 </mat-form-field>
 ```
 
-`s.value` je broj 1–5. `s.label` je riječ na ekranu (`Kreirana`, `U skladištu`, …). `[value]="s.label"` bi poslalo tekst i snimanje padne.
+HTML čita niz `statuses` sa komponente. Ako niza nema, spisak je prazan. U klasu, ispod `orders`, ide ovo. `OrderShipmentStatusType` je već uvezen. Cijeli niz je i u `RS1_Modul1_Vodic.md`, faza I3.
 
-Datumi **nisu** polja. Nema `formControlName`. Čitaju se sa `model`:
+```ts
+statuses = [
+  { value: OrderShipmentStatusType.Kreirana, label: 'Kreirana' },
+  { value: OrderShipmentStatusType.USkladistu, label: 'U skladištu' },
+  { value: OrderShipmentStatusType.UDostavi, label: 'U dostavi' },
+  { value: OrderShipmentStatusType.Dostavljena, label: 'Dostavljena' },
+  { value: OrderShipmentStatusType.Otkazana, label: 'Otkazana' }
+];
+```
+
+| `value` koji se šalje | Broj | `label` na ekranu |
+|-----------------------|------|-------------------|
+| `OrderShipmentStatusType.Kreirana` | 1 | Kreirana |
+| `OrderShipmentStatusType.USkladistu` | 2 | U skladištu |
+| `OrderShipmentStatusType.UDostavi` | 3 | U dostavi |
+| `OrderShipmentStatusType.Dostavljena` | 4 | Dostavljena |
+| `OrderShipmentStatusType.Otkazana` | 5 | Otkazana |
+
+`[value]="s.value"` šalje broj `1`…`5`. `[value]="s.label"` šalje tekst `"Dostavljena"`. Backend očekuje broj. Tekst padne na 400.
+
+`{{ s.label }}` je samo riječ koju korisnik vidi. U `patchValue` ide `status: shipment.status`, broj sa GET-a. Select sam nađe opciju sa istim brojem i pokaže njen label.
+
+### Datumi
+
+Cijela dva reda. Nisu polja. Nema `formControlName`, nema `mat-form-field`.
 
 ```html
 <p>Datum slanja: {{ model?.shippedAtUtc | date:'dd.MM.yyyy' }}</p>
 <p>Datum dostave: {{ (model?.deliveredAtUtc | date:'dd.MM.yyyy') || '-' }}</p>
+
+<p>Ako status postane Dostavljena, datum dostave se postavlja automatski na serveru.</p>
 ```
 
-`model?.` jer model stiže tek kad se pošiljka učita. Zagrada i `|| '-'` rade isto kao na listi: prazan datum dostave je crta.
+`model` je objekat sa `getById`. `patchValue` u njega ne dira datume: oni nisu u `fb.group`, pa nisu ni u `form.value`, pa ih `save` ne šalje.
 
-Dok stojiš na formi i u selectu odabereš Dostavljena, crta na ekranu ostane. Novi datum vidiš na listi, nakon snimanja. Server ga upiše. Forma ga ne računa.
+`model?.` jer je `model` prazan dok `forkJoin` ne završi. `date:'dd.MM.yyyy'` je isti pipe kao na listi. Zagrada oko datuma dostave i `|| '-'` rade isto kao na listi: `null` postane crta, postojeći datum postane `13.10.2026`, ne ISO string.
 
-Broj, cijena, narudžba, Odustani i Sačuvaj su isti kao na dodavanju.
+Dok stojiš na formi i u selectu odabereš Dostavljena, crta na ekranu ostane. `<p>` i dalje čita stari `model` sa GET-a. Novi datum vidiš na listi, nakon snimanja. Server ga upiše. Forma ga ne računa.
+
+Ne pravi disabled input za datum. Isključena kontrola ispadne iz `form.value`, a `getRawValue()` bi je vratio u JSON. `UpdateOrderShipmentCommand` nema `shippedAtUtc` ni `deliveredAtUtc`.
+
+### Zašto Sačuvaj ne reaguje
+
+Dugme je ugašeno čim je `form.invalid`. Najčešće je jedno ime pogrešno, pa se vrijednost nikad ne upiše u kontrolu, a `Validators.required` drži tu kontrolu praznom.
+
+| U HTML-u | Posljedica |
+|----------|------------|
+| `formControlName="ShippingCost"` | kontrole `shippingCost` nema u vezi. Cijena ostane `null`. Sačuvaj je ugašen |
+| `formControlName="categoryId"` | to je polje proizvoda. Ovdje je `orderId` |
+| `hasError('maxlength(20)')` | greška se ne prikaže. Ključ je `maxlength` |
+| nema niza `statuses` | status spisak je prazan |
+| `[value]="s.label"` | snimanje pošalje tekst i backend vrati 400 |
+
+Cijena u HTML-u se zove `shippingCost`. To ime ostaje, jer `update` šalje `shippingCost`. GET po id-u u ovom API-ju vraća `shippingPrice` (`ShippingPrice` na DTO-u). Sučelje u TypeScriptu to polje često zove `shippingCost`, pa `shipment.shippingCost` u kodu postoji, a u JSON-u ga nema. Input cijene ostane prazan i Sačuvaj opet ostane ugašen.
+
+Cijeli `patchValue`:
+
+```ts
+const cijena =
+  (shipment as { shippingPrice?: number }).shippingPrice ?? shipment.shippingCost;
+
+this.form.patchValue({
+  shipmentNumber: shipment.shipmentNumber,
+  shippingCost: cijena,
+  status: shipment.status,
+  orderId: shipment.orderId
+});
+```
+
+`orderId` sa GET-a jeste `orderId`. Njega ne preimenuješ. `status` je broj `1`…`5`, ne riječ `Kreirana`.
 
 ## Uređivanje, CSS
 
